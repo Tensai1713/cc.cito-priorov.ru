@@ -1,0 +1,123 @@
+# Включаем движок переписывания URL
+RewriteEngine On
+
+# Принудительный HTTPS
+# Если запрос не по HTTPS, перенаправляем на HTTPS
+RewriteCond %{HTTPS} off
+RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
+# Убираем расширение .php из URL
+# Перенаправляем с site.ru/page.php на site.ru/page
+RewriteCond %{THE_REQUEST} /([^.]+)\.php [NC]
+RewriteRule ^ /%1 [NC,L,R=301]
+
+# Убираем расширение .html из URL
+# Перенаправляем с site.ru/page.html на site.ru/page
+RewriteCond %{THE_REQUEST} /([^.]+)\.html [NC]
+RewriteRule ^ /%1 [NC,L,R=301]
+
+# Направляем запросы без расширения к файлам .php
+# Если запрашивается site.ru/page, ищем site.ru/page.php
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteCond %{REQUEST_FILENAME}.php -f
+RewriteRule ^(.*)$ $1.php [L]
+
+# Направляем запросы без расширения к файлам .html
+# Если запрашивается site.ru/page, ищем site.ru/page.html
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteCond %{REQUEST_FILENAME}.html -f
+RewriteRule ^(.*)$ $1.html [L]
+
+# Запрещаем доступ к системным файлам
+<FilesMatch "^\.ht">
+    Require all denied
+</FilesMatch>
+
+# Запрещаем просмотр директорий
+Options -Indexes
+
+# Устанавливаем кодировку по умолчанию
+AddDefaultCharset UTF-8
+
+# Кэширование для статических файлов
+<IfModule mod_expires.c>
+    ExpiresActive On
+    ExpiresByType image/jpg "access plus 1 year"
+    ExpiresByType image/jpeg "access plus 1 year"
+    ExpiresByType image/gif "access plus 1 year"
+    ExpiresByType image/png "access plus 1 year"
+    ExpiresByType text/css "access plus 1 month"
+    ExpiresByType application/javascript "access plus 1 month"
+</IfModule>
+
+# Сжатие Gzip
+<IfModule mod_deflate.c>
+    AddOutputFilterByType DEFLATE text/html
+    AddOutputFilterByType DEFLATE text/css
+    AddOutputFilterByType DEFLATE application/javascript
+    AddOutputFilterByType DEFLATE text/javascript
+    AddOutputFilterByType DEFLATE application/json
+</IfModule>
+
+
+
+# ============================================
+# ЗАЩИТА АДМИН-ПАНЕЛИ
+# ============================================
+
+# Запрещаем доступ к логам
+<FilesMatch "\.(log|ini|conf|bak|sql)$">
+    Require all denied
+</FilesMatch>
+
+# Запрещаем доступ к служебным файлам
+<FilesMatch "^(db_connect|admin_auth|config)\.php$">
+    Require all denied
+</FilesMatch>
+
+# Запрещаем доступ к скрытым файлам
+<FilesMatch "^\.">
+    Require all denied
+</FilesMatch>
+
+# Защита от перебора (если есть mod_evasive)
+<IfModule mod_evasive20.c>
+    DOSHashTableSize 2048
+    DOSPageCount 10
+    DOSSiteCount 100
+    DOSPageInterval 2
+    DOSSiteInterval 2
+    DOSBlockingPeriod 300
+</IfModule>
+
+# Отключаем отображение версии Apache
+ServerSignature Off
+
+# Защита от XSS и clickjacking
+<IfModule mod_headers.c>
+    Header always set X-Frame-Options "DENY"
+    Header always set X-Content-Type-Options "nosniff"
+    Header always set X-XSS-Protection "1; mode=block"
+</IfModule>
+
+
+#Require ip 10.1.
+#Require ip 10.0.
+#Require ip 10.10.10.
+#Require ip 172.16.1.
+#Require ip 172.16.2.
+#Require ip 172.16.3.
+#Require ip 192.168.50.
+#Require ip 192.192.192.
+#Require ip 10.0.0.100
+#Require ip 213.167.38.44
+#Require ip 10.0.14.12
+
+#Require ip 10.0.13.11
+
+#Require ip 46.138.49.250
+#Require ip 192.168.90.118
+
+#Require ip 10.0.0.111
+#Options All -Indexes
+
