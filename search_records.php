@@ -1,8 +1,8 @@
 <?php
-require_once 'db_connect.php';
-require_once 'helpers.php';
 define('ADMIN_AUTH', true);
 require_once __DIR__ . '/admin_auth.php';
+require_once 'db_connect.php';
+require_once 'helpers.php';
 
 $search = trim($_GET['search'] ?? '');
 $inspection = isset($_GET['inspection']) && $_GET['inspection'] === 'true' ? 1 : 0;
@@ -67,20 +67,23 @@ $result = $stmt->get_result();
 
 if ($result->num_rows > 0) {
     echo "<table class='my-table table2'>
+            <thead>
             <tr class='table-header'>
-                <th class='table-header-cell'>Марка</th>
-                <th class='table-header-cell'>Гос/номер</th>
-                <th class='table-header-cell'>Фамилия водителя</th>
-                <th class='table-header-cell'>ФИО заказчика</th>
-                <th class='table-header-cell'>Время въезда</th>
-                <th class='table-header-cell'>Время выезда</th>
-                <th class='table-header-cell'>Комментарий</th>
-                <th class='table-header-cell'>Без досмотра</th>
-                <th class='table-header-cell'>Годовая запись</th>
-                <th class='table-header-cell'>Дата въезда</th>
-                <th class='table-header-cell'>Дата выезда</th>
+                <th class='table-header-cell sortable' data-sort='car_make'>Марка <span class='sort-arrow'></span></th>
+                <th class='table-header-cell sortable' data-sort='state_number'>Гос/номер <span class='sort-arrow'></span></th>
+                <th class='table-header-cell sortable' data-sort='driver_last_name'>Фамилия водителя <span class='sort-arrow'></span></th>
+                <th class='table-header-cell sortable' data-sort='full_name_applicant'>ФИО заказчика <span class='sort-arrow'></span></th>
+                <th class='table-header-cell sortable' data-sort='entry_time'>Время въезда <span class='sort-arrow'></span></th>
+                <th class='table-header-cell sortable' data-sort='out_time'>Время выезда <span class='sort-arrow'></span></th>
+                <th class='table-header-cell sortable' data-sort='comment'>Комментарий <span class='sort-arrow'></span></th>
+                <th class='table-header-cell sortable' data-sort='inspection'>Без досмотра <span class='sort-arrow'></span></th>
+                <th class='table-header-cell sortable' data-sort='year_record'>Годовая запись <span class='sort-arrow'></span></th>
+                <th class='table-header-cell sortable' data-sort='entry_date'>Дата въезда <span class='sort-arrow'></span></th>
+                <th class='table-header-cell sortable' data-sort='out_date'>Дата выезда <span class='sort-arrow'></span></th>
                 <th class='table-header-cell'>Действия</th>
-            </tr>";
+            </tr>
+            </thead>
+            <tbody>";
 
     while ($row = $result->fetch_assoc()) {
         $rowColor = ($row['inspection'] == 1) ? ' style="background-color:rgba(255, 204, 0, 0.15); border-left: 4px solid #ffcc00;"' : '';
@@ -100,8 +103,8 @@ if ($result->num_rows > 0) {
         echo "<td class='table-cell'><textarea class='edit-field' data-field='comment' disabled rows='4' style='resize:none;'>" . htmlspecialchars($row['comment']) . "</textarea></td>";
         echo "<td class='table-cell'><input type='checkbox' class='edit-field table-check' data-field='inspection' value='1' " . ($row['inspection'] == 1 ? 'checked' : '') . " disabled></td>";
         echo "<td class='table-cell'><input type='checkbox' class='edit-field table-check' data-field='year_record' value='1' " . ($row['year_record'] == 1 ? 'checked' : '') . " disabled></td>";
-        echo "<td class='table-cell'><input type='date' class='edit-field' data-field='entry_date' value='" . $entryDate . "' disabled></td>";
-        echo "<td class='table-cell'><input type='date' class='edit-field' data-field='out_date' value='" . $outDate . "' disabled></td>";
+        echo "<td class='table-cell'><input type='text' data-type='date-mask' placeholder='ДД.ММ.ГГГГ' maxlength='10' class='edit-field' data-field='entry_date' value='" . $entryDate . "' disabled></td>";
+        echo "<td class='table-cell'><input type='text' data-type='date-mask' placeholder='ДД.ММ.ГГГГ' maxlength='10' class='edit-field' data-field='out_date' value='" . $outDate . "' disabled></td>";
         echo "<td class='table-cell'>
                 <div style='display: flex; flex-direction: column; gap: 10px;'>
                     <button class='edit-btn table-btn'>Редактировать</button>
@@ -111,7 +114,7 @@ if ($result->num_rows > 0) {
               </td>";
         echo "</tr>";
     }
-    echo "</table>";
+    echo "</tbody></table>";
 } else {
     echo "<div class='empty-message'>Совпадений не найдено</div>";
 }

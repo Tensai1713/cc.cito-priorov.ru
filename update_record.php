@@ -1,97 +1,107 @@
 <?php
-require_once 'db_connect.php';
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
+
 define('ADMIN_AUTH', true);
 require_once __DIR__ . '/admin_auth.php';
+require_once 'db_connect.php';
 
-if ($_SERVER["REQUEST_METHOD"] == "POST") {
-    $id = intval($_POST['id']);
-    $car_make = trim($_POST['car_make'] ?? null);
-    $state_number = trim($_POST['state_number'] ?? null);
-    $driver_last_name = trim($_POST['driver_last_name'] ?? null);
-    $full_name_applicant = trim($_POST['full_name_applicant'] ?? null);
-    $entry_time = trim($_POST['entry_time'] ?? null);
-    $out_time = trim($_POST['out_time'] ?? null);
-    $entry_date = trim($_POST['entry_date'] ?? null);
-    $out_date = trim($_POST['out_date'] ?? null);
-    $comment = trim($_POST['comment'] ?? null);
-    $inspection = (isset($_POST['inspection']) && $_POST['inspection'] == '1') ? 1 : 0;
-    $year_record = (isset($_POST['year_record']) && $_POST['year_record'] == '1') ? 1 : 0;
+header('Content-Type: application/json; charset=utf-8');
 
-    // Получаем информацию о записи перед редактированием
-    $stmtSelect = $conn->prepare("SELECT * FROM CarCheckpoint WHERE id = ?");
-    $stmtSelect->bind_param('i', $id);
-    $stmtSelect->execute();
-    $result = $stmtSelect->get_result();
-    $old_record = $result->fetch_assoc();
-
-    if (!$old_record) {
-        echo "Запись не найдена.";
-        exit;
+// === Функция получения IP (если не определена) ===
+if (!function_exists('get_real_ip')) {
+    function get_real_ip() {
+        return $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
     }
-
-    // Формируем старое значение как читаемую строку
-    $old_value = "Марка: {$old_record['car_make']}, Госномер: {$old_record['state_number']}, Фамилия водителя: {$old_record['driver_last_name']}, Полное имя заявителя: {$old_record['full_name_applicant']}, Время въезда: {$old_record['entry_time']}, Время выезда: {$old_record['out_time']}, Дата въезда: {$old_record['entry_date']}, Дата выезда: {$old_record['out_date']}, Комментарий: {$old_record['comment']}, Проверка: {$old_record['inspection']}, Год записи: {$old_record['year_record']}";
-
-    // Преобразуем пустые строки и невалидные значения в NULL
-    $entry_time_db = (empty($entry_time) || $entry_time === '00:00:00') ? null : $entry_time;
-    $out_time_db = (empty($out_time) || $out_time === '00:00:00') ? null : $out_time;
-    $entry_date_db = (empty($entry_date) || $entry_date === '1970-01-01' || $entry_date === '0000-00-00') ? null : $entry_date;
-    $out_date_db = (empty($out_date) || $out_date === '1970-01-01' || $out_date === '0000-00-00') ? null : $out_date;
-    $car_make_db = empty($car_make) ? null : $car_make;
-    $state_number_db = empty($state_number) ? null : $state_number;
-    $driver_last_name_db = empty($driver_last_name) ? null : $driver_last_name;
-    $full_name_applicant_db = empty($full_name_applicant) ? null : $full_name_applicant;
-    $comment_db = empty($comment) ? null : $comment;
-
-    // Обновляем запись
-    $stmtUpdate = $conn->prepare("UPDATE CarCheckpoint SET 
-        car_make=?, 
-        state_number=?, 
-        driver_last_name=?, 
-        full_name_applicant=?, 
-        entry_time=?, 
-        out_time=?, 
-        entry_date=?, 
-        out_date=?, 
-        comment=?, 
-        inspection=?, 
-        year_record=? 
-        WHERE id=?");
-    
-    $stmtUpdate->bind_param(
-        "ssssssssssii", 
-        $car_make_db, 
-        $state_number_db, 
-        $driver_last_name_db, 
-        $full_name_applicant_db, 
-        $entry_time_db, 
-        $out_time_db, 
-        $entry_date_db, 
-        $out_date_db, 
-        $comment_db, 
-        $inspection, 
-        $year_record, 
-        $id
-    );
-
-    if ($stmtUpdate->execute()) {
-        // Логируем обновление
-        $log_stmt = $conn->prepare("INSERT INTO logs (record_id, action, ip_address, old_value, new_value) VALUES (?, ?, ?, ?, ?)");
-        $action = 'update';
-        $ip_address = $_SERVER['REMOTE_ADDR'];
-        $new_value = "Марка: {$car_make}, Госномер: {$state_number}, Фамилия водителя: {$driver_last_name}, Полное имя заявителя: {$full_name_applicant}, Время въезда: {$entry_time}, Время выезда: {$out_time}, Дата въезда: {$entry_date}, Дата выезда: {$out_date}, Комментарий: {$comment}, Проверка: {$inspection}, Год записи: {$year_record}";
-
-        $log_stmt->bind_param("issss", $id, $action, $ip_address, $old_value, $new_value);
-        $log_stmt->execute();
-        $log_stmt->close();
-
-        echo "Запись успешно отредактирована!";
-    } else {
-        echo "Ошибка редактирования записи: " . $stmtUpdate->error;
-    }
-
-    $stmtSelect->close();
-    $stmtUpdate->close();
 }
-$conn->close();
+
+if ($_SERVER["REQUEST_METHOD"] !== "POST") {
+    http_response_code(405);
+    echo json_encode(['success' => false, 'message' => 'Метод не поддерживается']);
+    exit;
+}
+
+$id = intval($_POST['id'] ?? 0);
+if ($id <= 0) {
+    http_response_code(400);
+    echo json_encode(['success' => false, 'message' => 'Неверный ID записи']);
+    exit;
+}
+
+$car_make = trim($_POST['car_make'] ?? '');
+$state_number = trim($_POST['state_number'] ?? '');
+$driver_last_name = trim($_POST['driver_last_name'] ?? '');
+$full_name_applicant = trim($_POST['full_name_applicant'] ?? '');
+$entry_time = trim($_POST['entry_time'] ?? '');
+$out_time = trim($_POST['out_time'] ?? '');
+$entry_date = trim($_POST['entry_date'] ?? '');
+$out_date = trim($_POST['out_date'] ?? '');
+$comment = trim($_POST['comment'] ?? '');
+
+$inspection = isset($_POST['inspection']) ? intval($_POST['inspection']) : 0;
+$year_record = isset($_POST['year_record']) ? intval($_POST['year_record']) : 0;
+
+// Проверка на пустоту
+if (empty($car_make) && empty($state_number) && empty($driver_last_name) && 
+    empty($full_name_applicant) && empty($comment) && empty($entry_date) && empty($out_date)) {
+    http_response_code(400);
+    echo json_encode(['success' => false, 'message' => 'Пожалуйста, заполните хотя бы одно поле!']);
+    exit;
+}
+
+// Приводим пустые строки к NULL
+$car_make = $car_make !== '' ? $car_make : null;
+$state_number = $state_number !== '' ? $state_number : null;
+$driver_last_name = $driver_last_name !== '' ? $driver_last_name : null;
+$full_name_applicant = $full_name_applicant !== '' ? $full_name_applicant : null;
+$entry_time = $entry_time !== '' ? $entry_time : null;
+$out_time = $out_time !== '' ? $out_time : null;
+$entry_date = $entry_date !== '' ? $entry_date : null;
+$out_date = $out_date !== '' ? $out_date : null;
+$comment = $comment !== '' ? $comment : null;
+
+try {
+    $stmt = $conn->prepare("UPDATE CarCheckpoint SET car_make=?, state_number=?, driver_last_name=?, full_name_applicant=?, entry_time=?, out_time=?, entry_date=?, out_date=?, comment=?, inspection=?, year_record=? WHERE id=?");
+    
+    if (!$stmt) {
+        throw new Exception('Ошибка подготовки запроса: ' . $conn->error);
+    }
+    
+    // id в конце, поэтому "i" последним
+    $stmt->bind_param("ssssssssssii", $car_make, $state_number, $driver_last_name, $full_name_applicant, $entry_time, $out_time, $entry_date, $out_date, $comment, $inspection, $year_record, $id);
+
+    if ($stmt->execute()) {
+        $stmt->close();
+        
+        // === ЛОГИРОВАНИЕ (опционально) ===
+        try {
+            $check_table = $conn->query("SHOW TABLES LIKE 'logs'");
+            if ($check_table && $check_table->num_rows > 0) {
+                $log_stmt = $conn->prepare("INSERT INTO logs (record_id, action, ip_address, new_value) VALUES (?, ?, ?, ?)");
+                $action = 'update';
+                $ip_address = get_real_ip();
+                $new_value = "Марка: {$car_make}, Госномер: {$state_number}, Фамилия водителя: {$driver_last_name}, ФИО заявителя: {$full_name_applicant}, Время въезда: {$entry_time}, Время выезда: {$out_time}, Дата въезда: {$entry_date}, Дата выезда: {$out_date}, Комментарий: {$comment}, Без досмотра: {$inspection}, Годовая: {$year_record}";
+                
+                $log_stmt->bind_param("isss", $id, $action, $ip_address, $new_value);
+                $log_stmt->execute();
+                $log_stmt->close();
+            }
+        } catch (Exception $log_error) {
+            error_log('Ошибка логирования update: ' . $log_error->getMessage());
+        }
+
+        echo json_encode(['success' => true, 'message' => 'Запись успешно обновлена!']);
+    } else {
+        throw new Exception($stmt->error);
+    }
+
+} catch (Exception $e) {
+    error_log('Ошибка update_record.php: ' . $e->getMessage());
+    http_response_code(500);
+    echo json_encode(['success' => false, 'message' => 'Ошибка при обновлении: ' . $e->getMessage()]);
+} finally {
+    if (isset($conn) && $conn instanceof mysqli) {
+        $conn->close();
+    }
+}
 ?>

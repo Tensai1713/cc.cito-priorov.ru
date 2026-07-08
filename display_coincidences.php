@@ -117,8 +117,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             echo "<td class='table-cell'><textarea class='edit-field' data-field='comment' disabled rows='4' style='resize:none;'>" . htmlspecialchars($row['comment']) . "</textarea></td>";
             echo "<td class='table-cell'><input type='checkbox' class='edit-field table-check' data-field='inspection' value='1' " . ($row['inspection'] == 1 ? 'checked' : '') . " disabled></td>";
             echo "<td class='table-cell'><input type='checkbox' class='edit-field table-check' data-field='year_record' value='1' " . ($row['year_record'] == 1 ? 'checked' : '') . " disabled></td>";
-            echo "<td class='table-cell'><input type='date' class='edit-field' data-field='entry_date' value='" . $entryDate . "' disabled></td>";
-            echo "<td class='table-cell'><input type='date' class='edit-field' data-field='out_date' value='" . $outDate . "' disabled></td>";
+            echo "<td class='table-cell'><input type='text' data-type='date-mask' placeholder='ДД.ММ.ГГГГ' maxlength='10' class='edit-field' data-field='entry_date' value='" . $entryDate . "' disabled></td>";
+            echo "<td class='table-cell'><input type='text' data-type='date-mask' placeholder='ДД.ММ.ГГГГ' maxlength='10' class='edit-field' data-field='out_date' value='" . $outDate . "' disabled></td>";
             echo "<td class='table-cell'>
                     <div style='display: flex; flex-direction: column; gap: 10px;'>
                         <button class='edit-btn table-btn'>Редактировать</button>

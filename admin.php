@@ -2,13 +2,15 @@
 define('ADMIN_AUTH', true);
 require_once __DIR__ . '/admin_auth.php';
 ?>
-
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-    <meta name="csrf-token" content="<?= $_SESSION['admin_csrf_token'] ?? '' ?>">
     <meta charset="UTF-8">
-    <title>CarCheckpoint — Админ</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="<?= htmlspecialchars($_SESSION['admin_csrf_token'] ?? '') ?>">
+    <link rel="shortcut icon" href="img/favicon.ico" type="image/x-icon">
+    <link rel="icon" href="img/favicon.ico" type="image/x-icon">
+    <title>Админ</title>
     <link rel="stylesheet" href="./style.css">
     <link rel="stylesheet" href="./admin.css">
     <script defer src="./jquery.min.js"></script>
@@ -17,6 +19,7 @@ require_once __DIR__ . '/admin_auth.php';
 <body>
 <div class="toast-container" id="toastContainer"></div>
 
+<!-- УВЕДОМЛЕНИЯ О ЗАЯВКАХ -->
 <div class="admin-messages" id="adminMessages">
     <div class="message-wrapper" id="messageWrapper" style="display: none;">
         <div class="message-badge" id="messageBadge">0</div>
@@ -30,6 +33,7 @@ require_once __DIR__ . '/admin_auth.php';
     </div>
 </div>
 
+<!-- МОДАЛКА СПИСКА ЗАЯВОК -->
 <div class="requests-list-modal" id="requestsListModal" style="display: none;">
     <div class="requests-list-content">
         <h2 class="requests-list-title">Список заявок</h2>
@@ -38,6 +42,7 @@ require_once __DIR__ . '/admin_auth.php';
     </div>
 </div>
 
+<!-- МОДАЛКА ДЕТАЛЕЙ ЗАЯВКИ -->
 <div class="request-detail-modal" id="requestDetailModal" style="display: none;">
     <div class="request-detail-content">
         <button class="btn-close-modal" id="closeDetailBtn">✕</button>
@@ -50,6 +55,7 @@ require_once __DIR__ . '/admin_auth.php';
     </div>
 </div>
 
+<!-- МОДАЛКА ПОДТВЕРЖДЕНИЯ УДАЛЕНИЯ -->
 <div class="confirm-modal" id="confirmModal">
     <div class="confirm-modal-content">
         <h2 class="confirm-modal-title">Подтверждение удаления</h2>
@@ -61,8 +67,10 @@ require_once __DIR__ . '/admin_auth.php';
     </div>
 </div>
 
+<!-- ЛОГО -->
 <img class="logo" src="./img/logo.png" alt="">
 
+<!-- ГЛАВНОЕ МЕНЮ -->
 <div class="choice">
     <button id="entryBtn" class="record_btn btn">
         <svg class="record-svg" width="40" height="40" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -79,10 +87,12 @@ require_once __DIR__ . '/admin_auth.php';
     </button>
 </div>
 
-<button id="newEntryBtnBack" class="btn new-entry__btn-back none">Назад</button>
+<!-- КНОПКА НАЗАД -->
+<button id="newEntryBtnBack" class="btn new-entry__btn-back" style="display: none;">Назад</button>
 
-<div class="new-entry none">
-    <form class="new-entry__panel" id="carForm" method="post" action="record.php">
+<!-- ФОРМА ДОБАВЛЕНИЯ ЗАПИСИ -->
+<div class="new-entry" style="display: none;">
+    <form class="new-entry__panel" id="carForm">
         <div class="new-entry__inputs">
             <div class="new-entry__column grid-item1">
                 <label>Марка</label>
@@ -97,8 +107,9 @@ require_once __DIR__ . '/admin_auth.php';
                 <input class="new-entry__input" type="text" name="driverLastName">
             </div>
             <div class="new-entry__column grid-item4">
-                <label>ФИО инициатора</label>
-                <input class="new-entry__input" type="text" name="fullNameApplicant">
+                <label>ФИО инициатора <span class="required">*</span></label>
+                <input class="new-entry__input required-field" type="text" name="fullNameApplicant" id="fullNameApplicant">
+                <div class="field-error" id="fullNameError">Это поле обязательно для заполнения</div>
             </div>
             <div class="new-entry__column grid-item5">
                 <label>Время въезда</label>
@@ -118,15 +129,15 @@ require_once __DIR__ . '/admin_auth.php';
             </div>
             <div class="new-entry__column grid-item12">
                 <label>Годовая запись</label>
-                <input class="new-entry__input-checkbox" type="checkbox" name="yearRecord"> 
+                <input class="new-entry__input-checkbox" type="checkbox" name="yearRecord">
             </div>
             <div class="new-entry__column grid-item9">
                 <label>Дата въезда /<br>начала работ</label>
-                <input class="new-entry__input" type="date" name="entryDate" id="entryDate">
+                <input class="new-entry__input" type="text" data-type="date-mask" name="entryDate" id="entryDate" placeholder="ДД.ММ.ГГГГ" maxlength="10">
             </div>
             <div class="new-entry__column grid-item10">
                 <label>Дата выезда /<br>окончания работ</label>
-                <input class="new-entry__input" type="date" name="outDate" id="outDate">
+                <input class="new-entry__input" type="text" data-type="date-mask" name="outDate" id="outDate" placeholder="ДД.ММ.ГГГГ" maxlength="10">
             </div>
             <button class="btn grid-item11" type="submit">Добавить</button>
             <button class="btn grid-item13" type="button" id="clearFormBtn">Очистить</button>
@@ -134,7 +145,8 @@ require_once __DIR__ . '/admin_auth.php';
     </form>
 </div>
 
-<div class="new-entry search none">
+<!-- ПАНЕЛЬ ПОИСКА -->
+<div class="new-entry search" style="display: none;">
     <div class="search-panel">
         <div class="search-container">
             <div class="search-input-wrapper">
@@ -159,7 +171,7 @@ require_once __DIR__ . '/admin_auth.php';
                     <svg class="date-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                         <path d="M8 7V3M16 7V3M7 11H17M5 21H19C20.1046 21 21 20.1046 21 19V8C21 6.89543 20.1046 6 19 6H5C3.89543 6 3 6.89543 3 8V19C3 20.1046 3.89543 21 5 21Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                     </svg>
-                    <input type="date" id="dateFilter" class="search-date">
+                    <input type="text" data-type="date-mask" id="dateFilter" class="search-date" placeholder="ДД.ММ.ГГГГ" maxlength="10">
                 </div>
                 <button type="button" id="clearSearchBtn" class="btn btn-clear-search">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -172,8 +184,21 @@ require_once __DIR__ . '/admin_auth.php';
     </div>
 </div>
 
-<!-- ТАБЛИЦА РЕЗУЛЬТАТОВ -->
+<!-- КОНТЕЙНЕР ДЛЯ ТАБЛИЦ -->
 <div id="results"></div>
+
+<!-- МОДАЛКА ПОДТВЕРЖДЕНИЯ ОТПРАВКИ -->
+<div class="confirm-submit-modal" id="confirmSubmitModal">
+    <div class="confirm-submit-overlay" id="confirmSubmitOverlay"></div>
+    <div class="confirm-submit-content">
+        <h2 class="confirm-submit-title">Подтверждение</h2>
+        <p class="confirm-submit-text" id="confirmSubmitText">Вы уверены, что хотите отправить данные?</p>
+        <div class="confirm-submit-actions">
+            <button class="btn btn-cancel" id="confirmSubmitCancel">Отмена</button>
+            <button class="btn btn-confirm" id="confirmSubmitOk">Отправить</button>
+        </div>
+    </div>
+</div>
 
 </body>
 </html>
