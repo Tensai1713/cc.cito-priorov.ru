@@ -56,6 +56,36 @@ function formatTime($time) {
     return date('H:i', $timestamp);
 }
 
+
+// Конвертация YYYY-MM-DD → DD.MM.YYYY для маски даты
+function formatDateForMask($date) {
+    if (empty($date)) return '';
+    // Если уже в формате DD.MM.YYYY
+    if (preg_match('/^\d{2}\.\d{2}\.\d{4}$/', $date)) {
+        return $date;
+    }
+    // Если в формате YYYY-MM-DD
+    if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) {
+        $parts = explode('-', $date);
+        return $parts[2] . '.' . $parts[1] . '.' . $parts[0];
+    }
+    return '';
+}
+
+// Конвертация DD.MM.YYYY → YYYY-MM-DD для БД
+function convertDateForDB($date) {
+    if (empty($date)) return null;
+    // Если уже в формате YYYY-MM-DD
+    if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) {
+        return $date;
+    }
+    // Если в формате DD.MM.YYYY
+    if (preg_match('/^(\d{2})\.(\d{2})\.(\d{4})$/', $date, $matches)) {
+        return $matches[3] . '-' . $matches[2] . '-' . $matches[1];
+    }
+    return null;
+}
+
 /**
  * Форматирование даты для input type="date" (формат Y-m-d)
  */

@@ -274,8 +274,7 @@ if (!$is_logged_in) {
             <div class="new-entry__column grid-item8"><label>Без досмотра</label><input class="new-entry__input-checkbox" type="checkbox" name="inspection"></div>
             <div class="new-entry__column grid-item12"><label>Годовая запись</label><input class="new-entry__input-checkbox" type="checkbox" name="yearRecord"></div>
             <div class="new-entry__column grid-item9"><label>Дата въезда</label><input class="new-entry__input" type="text" data-type="date-mask" name="entryDate" placeholder="ДД.ММ.ГГГГ" maxlength="10"></div>
-            <div class="new-entry__column grid-item10"><label>Дата выезда</label>    <input class="new-entry__input" type="text" data-type="date-mask" name="outDate" placeholder="ДД.ММ.ГГГГ" maxlength="10">
-</div>
+            <div class="new-entry__column grid-item10"><label>Дата выезда</label><input class="new-entry__input" type="text" data-type="date-mask" name="outDate" placeholder="ДД.ММ.ГГГГ" maxlength="10"></div>
             <button class="btn grid-item11" type="submit">Отправить</button>
             <button class="btn grid-item13" type="button" id="clearFormBtn">Очистить</button>
         </div>
@@ -299,22 +298,22 @@ if (!$is_logged_in) {
 
 <script>
 (function() {
-    // ==================== ОЧИСТКА ПРИ ЗАКРЫТИИ ВКЛАДКИ ====================
+    // ==================== АВТОВЫХОД ТОЛЬКО НА КЛИЕНТЕ ====================
     
     const TAB_TOKEN = '<?= $_SESSION['auth_tab_token'] ?? '' ?>';
-    const TIMEOUT_MS = 15 * 60 * 1000; 
-    const CHECK_INTERVAL = 30000;
+    const TIMEOUT_MS = 15 * 60 * 1000; // 15 минут бездействия
+    const CHECK_INTERVAL = 30000;      // Проверка каждые 30 секунд
     
     let logoutInProgress = false;
     
-    // Функция полного выхода
+    // Функция выхода — ТОЛЬКО клиентская очистка + редирект
     function doLogout() {
         if (logoutInProgress) return;
         logoutInProgress = true;
         
         localStorage.clear();
         sessionStorage.clear();
-        navigator.sendBeacon('./logout.php');
+        
         
         setTimeout(function() {
             window.location.href = './';
@@ -324,18 +323,13 @@ if (!$is_logged_in) {
     // ==================== ПРОВЕРКА ПРИ ЗАГРУЗКЕ ====================
     const storedTabToken = sessionStorage.getItem('auth_tab_token');
     
-    // ВАЖНО: Проверяем только если токен УЖЕ есть в sessionStorage
-    // Если его нет — это первый вход, просто сохраняем новый токен
     if (storedTabToken && storedTabToken !== TAB_TOKEN) {
-        // Токен не совпадает — значит вкладка была закрыта и открыта заново
         localStorage.clear();
         sessionStorage.clear();
-        navigator.sendBeacon('./logout.php');
         window.location.href = './';
         return;
     }
     
-    // Сохраняем токен текущей вкладки (если он есть)
     if (TAB_TOKEN) {
         sessionStorage.setItem('auth_tab_token', TAB_TOKEN);
     }
@@ -376,13 +370,11 @@ if (!$is_logged_in) {
     window.addEventListener('beforeunload', function() {
         localStorage.clear();
         sessionStorage.clear();
-        navigator.sendBeacon('./logout.php');
     });
     
     window.addEventListener('pagehide', function() {
         localStorage.clear();
         sessionStorage.clear();
-        navigator.sendBeacon('./logout.php');
     });
     
 })();

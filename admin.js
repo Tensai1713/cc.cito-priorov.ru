@@ -1,5 +1,33 @@
 $(document).ready(function() {
 
+
+  // ==================== HEARTBEAT  ====================
+// Продлеваем сессию каждые 5 минут, пока страница открыта
+(function() {
+    function sendHeartbeat() {
+        fetch('./heartbeat.php', {
+            method: 'GET',
+            credentials: 'same-origin',
+            cache: 'no-store'
+        })
+        .then(response => {
+            if (response.status === 401) {
+                // Сессия умерла — редирект на вход
+                window.location.href = './';
+            }
+        })
+        .catch(error => {
+            // Игнорируем ошибки сети
+        });
+    }
+    
+    // Запускаем сразу при загрузке
+    sendHeartbeat();
+    
+    // И каждые 5 минут
+    setInterval(sendHeartbeat, 5 * 60 * 1000);
+})();
+
     // ======================== CSRF-ЗАЩИТА ========================
     const csrfToken = $('meta[name="csrf-token"]').attr('content');
 
@@ -435,6 +463,7 @@ function processRequest(id, action) {
 
     $('#closeListBtn').click(function() {
         $('#requestsListModal').fadeOut(200);
+
     });
 
     $('#closeDetailBtn').click(function() {

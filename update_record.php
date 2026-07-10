@@ -5,6 +5,7 @@ ini_set('display_errors', 1);
 define('ADMIN_AUTH', true);
 require_once __DIR__ . '/admin_auth.php';
 require_once 'db_connect.php';
+require_once 'helpers.php';
 
 header('Content-Type: application/json; charset=utf-8');
 
@@ -12,6 +13,25 @@ header('Content-Type: application/json; charset=utf-8');
 if (!function_exists('get_real_ip')) {
     function get_real_ip() {
         return $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
+    }
+}
+
+// === Функция конвертации даты (если не определена в helpers.php) ===
+if (!function_exists('convertDateForDB')) {
+    function convertDateForDB($date) {
+        if (empty($date)) return null;
+        
+        // Если уже в формате YYYY-MM-DD
+        if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) {
+            return $date;
+        }
+        
+        // Если в формате DD.MM.YYYY
+        if (preg_match('/^(\d{2})\.(\d{2})\.(\d{4})$/', $date, $matches)) {
+            return $matches[3] . '-' . $matches[2] . '-' . $matches[1];
+        }
+        
+        return null;
     }
 }
 
@@ -28,46 +48,49 @@ if ($id <= 0) {
     exit;
 }
 
-$car_make = trim($_POST['car_make'] ?? '');
-$state_number = trim($_POST['state_number'] ?? '');
-$driver_last_name = trim($_POST['driver_last_name'] ?? '');
-$full_name_applicant = trim($_POST['full_name_applicant'] ?? '');
-$entry_time = trim($_POST['entry_time'] ?? '');
-$out_time = trim($_POST['out_time'] ?? '');
-$entry_date = trim($_POST['entry_date'] ?? '');
-$out_date = trim($_POST['out_date'] ?? '');
-$comment = trim($_POST['comment'] ?? '');
-
-$inspection = isset($_POST['inspection']) ? intval($_POST['inspection']) : 0;
-$year_record = isset($_POST['year_record']) ? intval($_POST['year_record']) : 0;
-
-// Проверка на пустоту
-if (empty($car_make) && empty($state_number) && empty($driver_last_name) && 
-    empty($full_name_applicant) && empty($comment) && empty($entry_date) && empty($out_date)) {
-    http_response_code(400);
-    echo json_encode(['success' => false, 'message' => 'Пожалуйста, заполните хотя бы одно поле!']);
-    exit;
-}
-
-// Приводим пустые строки к NULL
-$car_make = $car_make !== '' ? $car_make : null;
-$state_number = $state_number !== '' ? $state_number : null;
-$driver_last_name = $driver_last_name !== '' ? $driver_last_name : null;
-$full_name_applicant = $full_name_applicant !== '' ? $full_name_applicant : null;
-$entry_time = $entry_time !== '' ? $entry_time : null;
-$out_time = $out_time !== '' ? $out_time : null;
-$entry_date = $entry_date !== '' ? $entry_date : null;
-$out_date = $out_date !== '' ? $out_date : null;
-$comment = $comment !== '' ? $comment : null;
-
 try {
+    $car_make = trim($_POST['car_make'] ?? '');
+    $state_number = trim($_POST['state_number'] ?? '');
+    $driver_last_name = trim($_POST['driver_last_name'] ?? '');
+    $full_name_applicant = trim($_POST['full_name_applicant'] ?? '');
+    $entry_time = trim($_POST['entry_time'] ?? '');
+    $out_time = trim($_POST['out_time'] ?? '');
+    
+    // ✅ КОНВЕРТАЦИЯ ДАТ ИЗ DD.MM.YYYY В YYYY-MM-DD
+    $entry_date_raw = trim($_POST['entry_date'] ?? '');
+    $out_date_raw = trim($_POST['out_date'] ?? '');
+    $entry_date = convertDateForDB($entry_date_raw);
+    $out_date = convertDateForDB($out_date_raw);
+    
+    $comment = trim($_POST['comment'] ?? '');
+
+    $inspection = isset($_POST['inspection']) ? intval($_POST['inspection']) : 0;
+    $year_record = isset($_POST['year_record']) ? intval($_POST['year_record']) : 0;
+
+    // Проверка на пустоту
+    if (empty($car_make) && empty($state_number) && empty($driver_last_name) && 
+        empty($full_name_applicant) && empty($comment) && empty($entry_date_raw) && empty($out_date_raw)) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'message' => 'Пожалуйста, заполните хотя бы одно поле!']);
+        exit;
+    }
+
+    // Приводим пустые строки к NULL
+    $car_make = $car_make !== '' ? $car_make : null;
+    $state_number = $state_number !== '' ? $state_number : null;
+    $driver_last_name = $driver_last_name !== '' ? $driver_last_name : null;
+    $full_name_applicant = $full_name_applicant !== '' ? $full_name_applicant : null;
+    $entry_time = $entry_time !== '' ? $entry_time : null;
+    $out_time = $out_time !== '' ? $out_time : null;
+    // ✅ Даты уже сконвертированы или null
+    $comment = $comment !== '' ? $comment : null;
+
     $stmt = $conn->prepare("UPDATE CarCheckpoint SET car_make=?, state_number=?, driver_last_name=?, full_name_applicant=?, entry_time=?, out_time=?, entry_date=?, out_date=?, comment=?, inspection=?, year_record=? WHERE id=?");
     
     if (!$stmt) {
         throw new Exception('Ошибка подготовки запроса: ' . $conn->error);
     }
     
-    // id в конце, поэтому "i" последним
     $stmt->bind_param("ssssssssssii", $car_make, $state_number, $driver_last_name, $full_name_applicant, $entry_time, $out_time, $entry_date, $out_date, $comment, $inspection, $year_record, $id);
 
     if ($stmt->execute()) {

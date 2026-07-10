@@ -6,6 +6,15 @@ define('ADMIN_AUTH', true);
 require_once __DIR__ . '/admin_auth.php';
 require_once 'db_connect.php';
 
+require_once 'allowed_ips.php';
+
+// Проверка IP перед удалением
+if (!canDelete()) {
+    http_response_code(403);
+    echo json_encode(['success' => false, 'message' => 'У вас нет прав для удаления записей']);
+    exit;
+}
+
 header('Content-Type: application/json; charset=utf-8');
 
 // === Функция получения IP (если не определена в admin_auth.php) ===

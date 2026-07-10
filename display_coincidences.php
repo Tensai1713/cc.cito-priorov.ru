@@ -1,6 +1,7 @@
 <?php
 require_once 'db_connect.php';
 require_once 'helpers.php';
+require_once 'allowed_ips.php';
 
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $car_make = strtolower($_POST['carMakeSearch'] ?? '');
@@ -104,8 +105,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
             $entryTime = formatTimeForInput($row['entry_time']);
             $outTime = formatTimeForInput($row['out_time']);
-            $entryDate = formatDateForInput($row['entry_date']);
-            $outDate = formatDateForInput($row['out_date']);
+            $entryDate = formatDateForMask($row['entry_date']);
+            $outDate = formatDateForMask($row['out_date']);
 
             echo "<tr class='table-row' $rowColor data-id='" . htmlspecialchars($row['id']) . "'>";
             echo "<td class='table-cell'><input type='text' class='edit-field' data-field='car_make' value='" . htmlspecialchars($row['car_make']) . "' disabled></td>";
@@ -123,7 +124,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                     <div style='display: flex; flex-direction: column; gap: 10px;'>
                         <button class='edit-btn table-btn'>Редактировать</button>
                         <button class='save-btn table-btn' style='display:none;'>Сохранить</button>
-                        <button class='delete-btn table-btn' data-id='" . htmlspecialchars($row['id']) . "'>Удалить</button>
+                        " . (canDelete() ? "<button class='delete-btn table-btn' data-id='" . htmlspecialchars($row['id']) . "'>Удалить</button>" : "") . "
                     </div>
                   </td>";
             echo "</tr>";

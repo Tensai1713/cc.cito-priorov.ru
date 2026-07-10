@@ -18,7 +18,7 @@ function isAuthorized() {
     }
     
     // Проверяем время бездействия (15 минут)
-    $timeout = 15 * 60; // 15 минут в секундах
+    $timeout = 60 * 60; 
     $lastActivity = $_SESSION['auth_last_activity'] ?? 0;
     
     if (time() - $lastActivity > $timeout) {

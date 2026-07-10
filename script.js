@@ -159,14 +159,12 @@ $(document).ready(function() {
 // ==================== МАСКА ДАТЫ ДЛЯ TEXT-ПОЛЕЙ ====================
 $(document).on('input', 'input[data-type="date-mask"]', function() {
     const input = this;
-    let value = input.value.replace(/\D/g, ''); // Только цифры
+    let value = input.value.replace(/\D/g, '');
     
-    // Форматируем: ДДММГГГГ
     if (value.length > 8) value = value.slice(0, 8);
     
     let formatted = '';
     if (value.length > 0) {
-        // День (первые 2 цифры)
         let day = value.slice(0, 2);
         if (day.length === 2) {
             const d = parseInt(day, 10);
@@ -177,7 +175,6 @@ $(document).on('input', 'input[data-type="date-mask"]', function() {
     }
     if (value.length > 2) {
         formatted += '.';
-        // Месяц (следующие 2 цифры)
         let month = value.slice(2, 4);
         if (month.length === 2) {
             const m = parseInt(month, 10);
@@ -188,7 +185,6 @@ $(document).on('input', 'input[data-type="date-mask"]', function() {
     }
     if (value.length > 4) {
         formatted += '.';
-        // Год (последние 4 цифры) — при переполнении сдвиг
         let year = value.slice(4, 8);
         formatted += year;
     }
@@ -236,8 +232,8 @@ $(document).on('blur', 'input[data-type="date-mask"]', function() {
         const carMake = $("input[name='carMake']").val();
         const stateNumber = $("input[name='stateNumber']").val();
         const driverLastName = $("input[name='driverLastName']").val();
-        const entryDate = $("#entryDate").val();
-        const outDate = $("#outDate").val();
+        const entryDate = $("input[name='entryDate']").val();
+        const outDate = $("input[name='outDate']").val();
         const comment = $("textarea[name='comment']").val();
 
         const fullNameTrimmed = fullNameApplicant ? fullNameApplicant.trim() : '';

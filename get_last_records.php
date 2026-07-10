@@ -3,6 +3,7 @@ define('ADMIN_AUTH', true);
 require_once __DIR__ . '/admin_auth.php';
 require_once 'db_connect.php';
 require_once 'helpers.php';
+require_once 'allowed_ips.php';
 
 $query = "SELECT * FROM CarCheckpoint ORDER BY id DESC LIMIT 10";
 $result = $conn->query($query);
@@ -32,8 +33,8 @@ if ($result->num_rows > 0) {
 
         $entryTime = formatTimeForInput($row['entry_time']);
         $outTime = formatTimeForInput($row['out_time']);
-        $entryDate = formatDateForInput($row['entry_date']);
-        $outDate = formatDateForInput($row['out_date']);
+        $entryDate = formatDateForMask($row['entry_date']);
+        $outDate = formatDateForMask($row['out_date']);
 
         echo "<tr class='table-row' $rowColor data-id='" . htmlspecialchars($row['id']) . "'>";
         echo "<td class='table-cell'><input type='text' class='edit-field' data-field='car_make' value='" . htmlspecialchars($row['car_make']) . "' disabled></td>";
@@ -45,13 +46,14 @@ if ($result->num_rows > 0) {
         echo "<td class='table-cell'><textarea class='edit-field' data-field='comment' disabled rows='4' style='resize:none;'>" . htmlspecialchars($row['comment']) . "</textarea></td>";
         echo "<td class='table-cell'><input type='checkbox' class='edit-field table-check' data-field='inspection' value='1' " . ($row['inspection'] == 1 ? 'checked' : '') . " disabled></td>";
         echo "<td class='table-cell'><input type='checkbox' class='edit-field table-check' data-field='year_record' value='1' " . ($row['year_record'] == 1 ? 'checked' : '') . " disabled></td>";
-        echo "<td class='table-cell'><input type='text' class='edit-field' data-type='date-mask' data-field='entry_date' value='" . htmlspecialchars($entryDateDisplay) . "' placeholder='ДД.ММ.ГГГГ' maxlength='10' disabled></td>";
-        echo "<td class='table-cell'><input type='text' class='edit-field' data-type='date-mask' data-field='out_date' value='" . htmlspecialchars($outDateDisplay) . "' placeholder='ДД.ММ.ГГГГ' maxlength='10' disabled></td>";        
+        echo "<td class='table-cell'><input type='text' class='edit-field' data-type='date-mask' data-field='entry_date' value='" . $entryDate . "' placeholder='ДД.ММ.ГГГГ' maxlength='10' disabled></td>";
+
+        echo "<td class='table-cell'><input type='text' class='edit-field' data-type='date-mask' data-field='out_date' value='" . $outDate . "' placeholder='ДД.ММ.ГГГГ' maxlength='10' disabled></td>";     
         echo "<td class='table-cell'>
                 <div style='display: flex; flex-direction: column; gap: 10px;'>
                     <button class='edit-btn table-btn'>Редактировать</button>
                     <button class='save-btn table-btn' style='display:none;'>Сохранить</button>
-                    <button class='delete-btn table-btn' data-id='" . htmlspecialchars($row['id']) . "'>Удалить</button>
+                    " . (canDelete() ? "<button class='delete-btn table-btn' data-id='" . htmlspecialchars($row['id']) . "'>Удалить</button>" : "") . "
                 </div>
               </td>";
         echo "</tr>";
