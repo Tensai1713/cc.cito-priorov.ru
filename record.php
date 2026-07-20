@@ -48,6 +48,12 @@ try {
     $full_name_applicant = trim($_POST['fullNameApplicant'] ?? '');
     $entry_time = trim($_POST['entryTime'] ?? '');
     $out_time = trim($_POST['outTime'] ?? '');
+
+    if (empty($full_name_applicant)) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'message' => 'ФИО инициатора обязательно для заполнения!']);
+        exit;
+    }
     
     // ✅ КОНВЕРТАЦИЯ ДАТ ИЗ DD.MM.YYYY В YYYY-MM-DD
     $entry_date_raw = trim($_POST['entryDate'] ?? '');

@@ -102,6 +102,176 @@ $(document).ready(function() {
         initBrandAutocomplete($(this));
     });
 
+
+    // ======================== МАСКА ГОСНОМЕРА РФ ========================
+function applyPlateMask(value) {
+    const allowedLetters = 'АВЕКМНОРСТУХ';
+    value = value.toUpperCase();
+    
+    // Разделяем на буквы и цифры
+    const letters = [];
+    const digits = [];
+    
+    for (let char of value) {
+        if (allowedLetters.includes(char)) {
+            letters.push(char);
+        } else if (/\d/.test(char)) {
+            digits.push(char);
+        }
+        // Другие символы (латиница, спецсимволы) игнорируем
+    }
+    
+    // Собираем результат: буква + 3 цифры + 2 буквы
+    let result = '';
+    
+    // Позиция 1: первая буква
+    if (letters.length > 0) result += letters[0];
+    
+    // Позиции 2-4: 3 цифры
+    for (let i = 0; i < 3 && i < digits.length; i++) {
+        result += digits[i];
+    }
+    
+    // Позиции 5-6: вторая и третья буквы
+    for (let i = 1; i < 3 && i < letters.length; i++) {
+        result += letters[i];
+    }
+    
+    return result;
+}
+
+// Обработчик ввода для полей с маской госномера
+$(document).on('input', 'input[data-type="plate-mask"]', function() {
+    const $input = $(this);
+    const cursorPos = this.selectionStart;
+    const oldValue = $input.val();
+    const newValue = applyPlateMask(oldValue);
+    
+    $input.val(newValue);
+    
+    // Восстанавливаем позицию курсора
+    const diff = newValue.length - oldValue.length;
+    const newPos = Math.max(0, cursorPos + diff);
+    this.setSelectionRange(newPos, newPos);
+});
+
+// Блокировка запрещённых символов при вводе
+$(document).on('keydown', 'input[data-type="plate-mask"]', function(e) {
+    const allowed = [
+        'Backspace', 'Delete', 'Tab', 'Enter', 'Escape',
+        'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown',
+        'Home', 'End'
+    ];
+    
+    if (allowed.includes(e.key)) return;
+    if (e.ctrlKey || e.metaKey) return; // Разрешаем Ctrl+C, Ctrl+V и т.д.
+    
+    const char = e.key.toUpperCase();
+    const allowedLetters = 'АВЕКМНОРСТУХ';
+    
+    // Разрешаем только цифры и разрешённые буквы
+    if (!/\d/.test(char) && !allowedLetters.includes(char)) {
+        e.preventDefault();
+    }
+});
+
+
+// ======================== МАСКА ГОСНОМЕРА РФ С РЕГИОНОМ ========================
+function applyPlateMask(value) {
+    const allowedLetters = 'АВЕКМНОРСТУХ';
+    value = value.toUpperCase();
+    
+    // Разделяем на буквы, цифры и регион
+    const letters = [];
+    const digits = [];
+    const regionDigits = [];
+    
+    // Сначала извлекаем все символы
+    for (let char of value) {
+        if (allowedLetters.includes(char)) {
+            letters.push(char);
+        } else if (/\d/.test(char)) {
+            digits.push(char);
+        }
+    }
+    
+    // Собираем основной номер: буква + 3 цифры + 2 буквы
+    let result = '';
+    
+    // Позиция 1: первая буква
+    if (letters.length > 0) result += letters[0];
+    
+    // Позиции 2-4: 3 цифры
+    for (let i = 0; i < 3 && i < digits.length; i++) {
+        result += digits[i];
+    }
+    
+    // Позиции 5-6: вторая и третья буквы
+    for (let i = 1; i < 3 && i < letters.length; i++) {
+        result += letters[i];
+    }
+    
+    // Если основной номер полный (6 символов), добавляем регион
+    if (result.length === 6) {
+        // Извлекаем цифры региона (оставшиеся цифры после первых 3)
+        const remainingDigits = digits.slice(3);
+        
+        if (remainingDigits.length > 0) {
+            result += ' '; // Разделитель
+            
+            // Добавляем до 3 цифр региона
+            for (let i = 0; i < 3 && i < remainingDigits.length; i++) {
+                result += remainingDigits[i];
+            }
+        }
+    }
+    
+    return result;
+}
+
+// Обработчик ввода для полей с маской госномера
+$(document).on('input', 'input[data-type="plate-mask"]', function() {
+    const $input = $(this);
+    const cursorPos = this.selectionStart;
+    const oldValue = $input.val();
+    const newValue = applyPlateMask(oldValue);
+    
+    $input.val(newValue);
+    
+    // Восстанавливаем позицию курсора
+    const diff = newValue.length - oldValue.length;
+    const newPos = Math.max(0, cursorPos + diff);
+    this.setSelectionRange(newPos, newPos);
+});
+
+// Блокировка запрещённых символов при вводе
+$(document).on('keydown', 'input[data-type="plate-mask"]', function(e) {
+    const allowed = [
+        'Backspace', 'Delete', 'Tab', 'Enter', 'Escape',
+        'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown',
+        'Home', 'End'
+    ];
+    
+    if (allowed.includes(e.key)) return;
+    if (e.ctrlKey || e.metaKey) return;
+    
+    const char = e.key.toUpperCase();
+    const allowedLetters = 'АВЕКМНОРСТУХ';
+    const currentValue = $(this).val();
+    
+    // Если уже есть 6 символов (основной номер), разрешаем только цифры и пробел
+    if (currentValue.length >= 6) {
+        if (!/\d/.test(char) && char !== ' ') {
+            e.preventDefault();
+        }
+    } else {
+        // Иначе разрешаем цифры и разрешённые буквы
+        if (!/\d/.test(char) && !allowedLetters.includes(char)) {
+            e.preventDefault();
+        }
+    }
+});
+
     // ======================== СИСТЕМА УПРАВЛЕНИЯ УВЕДОМЛЕНИЯМИ ========================
     function hasNotificationBeenShown(notificationId) {
         return sessionStorage.getItem('notification_' + notificationId) === 'true';

@@ -1,4 +1,4 @@
-/* ==================== АДМИН ПАНЕЛЬ ==================== */
+/* ==================== АДМИН ПАНЕЛЬ: КОНТЕЙНЕР И СТАТИСТИКА ==================== */
 .admin-container {
     max-width: 1400px;
     margin: 0 auto;
@@ -60,7 +60,7 @@
     letter-spacing: 1px;
 }
 
-/* ==================== СООБЩЕНИЯ (MESSAGES) ==================== */
+/* ==================== СООБЩЕНИЯ (УВЕДОМЛЕНИЯ) ==================== */
 .admin-messages {
     position: fixed;
     top: 20px;
@@ -142,18 +142,13 @@
     flex-shrink: 0;
 }
 
-/* Пульсация message */
 .pulse {
     animation: messagePulse 2s ease-in-out infinite;
 }
 
 @keyframes messagePulse {
-    0%, 100% {
-        box-shadow: var(--glass-shadow), 0 0 0 0 rgba(90, 200, 250, 0.4);
-    }
-    50% {
-        box-shadow: var(--glass-shadow-hover), 0 0 0 15px rgba(90, 200, 250, 0);
-    }
+    0%, 100% { box-shadow: var(--glass-shadow), 0 0 0 0 rgba(90, 200, 250, 0.4); }
+    50% { box-shadow: var(--glass-shadow-hover), 0 0 0 15px rgba(90, 200, 250, 0); }
 }
 
 /* ==================== МОДАЛКА СПИСКА ЗАЯВОК ==================== */
@@ -166,10 +161,16 @@
     background: rgba(0, 0, 0, 0.7);
     backdrop-filter: blur(5px);
     z-index: 2000;
-    display: flex;
+    display: none; /* Управляется через JS */
     align-items: center;
     justify-content: center;
     padding: 20px;
+}
+
+/* Хак для совместимости с jQuery .fadeIn() */
+.requests-list-modal[style*="display: flex"],
+.requests-list-modal.active {
+    display: flex !important;
 }
 
 .requests-list-content {
@@ -226,10 +227,15 @@
     margin-bottom: 8px;
 }
 
-.request-list-item-id {
-    font-size: 14px;
+.request-list-item-title {
+    font-size: 16px;
     font-weight: 700;
-    color: var(--primary);
+    color: var(--white);
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 70%;
 }
 
 .request-list-item-date {
@@ -252,6 +258,12 @@
     font-weight: 500;
 }
 
+.request-tag-id {
+    background: rgba(142, 142, 147, 0.2);
+    color: var(--gray-300);
+    font-size: 12px;
+}
+
 .btn-close-list {
     width: 100%;
     background: rgba(255, 255, 255, 0.15);
@@ -269,6 +281,13 @@
     background: rgba(255, 255, 255, 0.25);
 }
 
+.empty-list {
+    text-align: center;
+    color: var(--gray-400);
+    padding: 40px 20px;
+    font-size: 16px;
+}
+
 /* ==================== МОДАЛКА ДЕТАЛЕЙ ЗАЯВКИ ==================== */
 .request-detail-modal {
     position: fixed;
@@ -279,10 +298,15 @@
     background: rgba(0, 0, 0, 0.7);
     backdrop-filter: blur(5px);
     z-index: 3000;
-    display: flex;
+    display: none;
     align-items: center;
     justify-content: center;
     padding: 20px;
+}
+
+.request-detail-modal[style*="display: flex"],
+.request-detail-modal.active {
+    display: flex !important;
 }
 
 .request-detail-content {
@@ -392,13 +416,6 @@
     background: linear-gradient(135deg, #ff5247 0%, #ff6b60 100%) !important;
 }
 
-.empty-list {
-    text-align: center;
-    color: var(--gray-400);
-    padding: 40px 20px;
-    font-size: 16px;
-}
-
 /* ==================== АДАПТИВНОСТЬ АДМИНКИ ==================== */
 @media (max-width: 768px) {
     .admin-messages {
@@ -440,134 +457,8 @@
     }
 }
 
-.request-list-item-title {
-    font-size: 16px;
-    font-weight: 700;
-    color: var(--white);
-    flex: 1;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    max-width: 70%;
-}
-
-.request-tag-id {
-    background: rgba(142, 142, 147, 0.2);
-    color: var(--gray-300);
-    font-size: 12px;
-}
-
-/* ==================== МОДАЛКА ПОДТВЕРЖДЕНИЯ ОТПРАВКИ ==================== */
-.confirm-submit-modal {
-    display: none;
-    position: fixed;
-    z-index: 10001;
-    left: 0;
-    top: 0;
-    width: 100%;
-    height: 100%;
-    background-color: rgba(0, 0, 0, 0.7);
-    backdrop-filter: blur(5px);
-    -webkit-backdrop-filter: blur(5px);
-    align-items: center;
-    justify-content: center;
-}
-
-.confirm-submit-modal.active {
-    display: flex;
-}
-
-.confirm-submit-overlay {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-}
-
-.confirm-submit-content {
-    background: var(--glass-bg);
-    backdrop-filter: blur(30px) saturate(180%);
-    -webkit-backdrop-filter: blur(30px) saturate(180%);
-    border: 1px solid var(--glass-border);
-    border-radius: 28px;
-    box-shadow: var(--glass-shadow-hover);
-    padding: 40px;
-    max-width: 500px;
-    width: 90%;
-    animation: slideUp 0.4s ease-out;
-    position: relative;
-    z-index: 1;
-}
-
-.confirm-submit-title {
-    font-size: 28px;
-    font-weight: 700;
-    margin-bottom: 20px;
-    background: linear-gradient(135deg, var(--white) 0%, var(--gray-300) 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-    text-align: center;
-}
-
-.confirm-submit-text {
-    font-size: 18px;
-    line-height: 1.6;
-    margin-bottom: 32px;
-    color: var(--white);
-    text-align: center;
-}
-
-.confirm-submit-actions {
-    display: flex;
-    gap: 16px;
-    justify-content: center;
-}
-
-.confirm-submit-actions .btn {
-    padding: 14px 40px;
-    font-size: 16px;
-    min-width: 140px;
-}
-
-.confirm-submit-actions .btn-confirm {
-    background: linear-gradient(135deg, var(--success) 0%, #299c48 100%);
-    box-shadow: 0 4px 16px rgba(37, 248, 90, 0.3);
-}
-
-.confirm-submit-actions .btn-confirm:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 24px rgba(37, 248, 90, 0.4);
-}
-
-.confirm-submit-actions .btn-cancel {
-    background: rgba(255, 255, 255, 0.15);
-    backdrop-filter: blur(10px);
-    color: var(--white);
-    border: 1px solid var(--glass-border);
-}
-
-.confirm-submit-actions .btn-cancel:hover {
-    background: rgba(255, 255, 255, 0.25);
-    transform: translateY(-2px);
-}
-
-@media (max-width: 768px) {
-    .confirm-submit-content {
-        padding: 30px 20px;
-    }
-    .confirm-submit-title {
-        font-size: 22px;
-    }
-    .confirm-submit-text {
-        font-size: 16px;
-    }
-    .confirm-submit-actions {
-        flex-direction: column;
-    }
-    .confirm-submit-actions .btn {
-        width: 100%;
-        min-width: auto;
-    }
+/* Анимация появления модалок (резервная, если не подтянется из style.css) */
+@keyframes slideUp {
+    from { transform: translateY(50px) scale(0.95); opacity: 0; }
+    to { transform: translateY(0) scale(1); opacity: 1; }
 }

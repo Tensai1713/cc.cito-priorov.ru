@@ -100,7 +100,7 @@ require_once __DIR__ . '/admin_auth.php';
             </div>
             <div class="new-entry__column grid-item2">
                 <label>Гос/номер</label>
-                <input class="new-entry__input" type="text" name="stateNumber">
+                <input class="new-entry__input" type="text" name="stateNumber" data-type="plate-mask" maxlength="10" placeholder="А123BВ 77">
             </div>
             <div class="new-entry__column grid-item3">
                 <label>Фамилия водителя</label>

@@ -3,36 +3,11 @@ error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
 define('ADMIN_AUTH', true);
-require_once __DIR__ . '/admin_auth.php';
+require_once __DIR__ . '/admin_auth.php'; // ← Проверяет IP и CSRF
 require_once 'db_connect.php';
 require_once 'helpers.php';
 
 header('Content-Type: application/json; charset=utf-8');
-
-
-if (!function_exists('get_real_ip')) {
-    function get_real_ip() {
-        return $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
-    }
-}
-
-// Функция конвертации даты
-if (!function_exists('convertDateForDB')) {
-    function convertDateForDB($date) {
-        if (empty($date)) return null;
-        if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) return $date;
-        if (preg_match('/^(\d{2})\.(\d{2})\.(\d{4})$/', $date, $matches)) {
-            return $matches[3] . '-' . $matches[2] . '-' . $matches[1];
-        }
-        return null;
-    }
-}
-
-// ✅ ОТЛАДКА: логируем IP и сессию
-error_log("=== process_request.php ===");
-error_log("IP: " . ($_SERVER['REMOTE_ADDR'] ?? 'unknown'));
-error_log("Session ID: " . session_id());
-error_log("Auth status: " . (isset($_SESSION['auth_user']) ? 'YES' : 'NO'));
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     http_response_code(405);
@@ -74,35 +49,24 @@ try {
         $out_time = !empty($request['out_time']) ? $request['out_time'] : null;
         $comment = !empty($request['comment']) ? $request['comment'] : null;
 
-        // ✅ Конвертация дат
         $entry_date = convertDateForDB($request['entry_date'] ?? '');
         $out_date = convertDateForDB($request['out_date'] ?? '');
 
         $insert = $conn->prepare("INSERT INTO CarCheckpoint (car_make, state_number, driver_last_name, full_name_applicant, entry_time, out_time, entry_date, out_date, comment, inspection, year_record) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
         
-        $insert->bind_param(
-            "sssssssssii",
-            $car_make, $state_number, $driver_last_name, $full_name_applicant,
-            $entry_time, $out_time, $entry_date, $out_date, $comment,
-            $inspection, $year_record
-        );
+        $insert->bind_param("sssssssssii", $car_make, $state_number, $driver_last_name, $full_name_applicant, $entry_time, $out_time, $entry_date, $out_date, $comment, $inspection, $year_record);
 
         if (!$insert->execute()) {
             throw new Exception('Ошибка вставки: ' . $insert->error);
         }
-        
-        $last_id = $insert->insert_id;
         $insert->close();
 
         $update = $conn->prepare("UPDATE requests SET status = 'approved' WHERE id = ?");
         $update->bind_param('i', $id);
-        
-        if (!$update->execute()) {
-            throw new Exception('Ошибка обновления статуса: ' . $update->error);
-        }
+        $update->execute();
         $update->close();
 
-        echo json_encode(['success' => true, 'message' => "Заявка одобрена"], JSON_UNESCAPED_UNICODE);
+        echo json_encode(['success' => true, 'message' => "Заявка #$id одобрена"], JSON_UNESCAPED_UNICODE);
 
     } elseif ($action === 'reject') {
         $update = $conn->prepare("UPDATE requests SET status = 'rejected' WHERE id = ?");
@@ -110,7 +74,7 @@ try {
         
         if ($update->execute()) {
             $update->close();
-            echo json_encode(['success' => true, 'message' => "Заявка отклонена"], JSON_UNESCAPED_UNICODE);
+            echo json_encode(['success' => true, 'message' => "Заявка #$id отклонена"], JSON_UNESCAPED_UNICODE);
         } else {
             throw new Exception('Ошибка обновления: ' . $update->error);
         }

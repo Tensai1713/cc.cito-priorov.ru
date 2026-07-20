@@ -184,7 +184,7 @@ if (!$is_logged_in) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CarCheckpoint — Заявка</title>
+    <title>Заявка </title>
     <link rel="shortcut icon" href="img/favicon.ico" type="image/x-icon">
     <link rel="icon" href="img/favicon.ico" type="image/x-icon">
     <link rel="stylesheet" href="./style.css">
@@ -256,12 +256,12 @@ if (!$is_logged_in) {
     <form class="new-entry__panel" id="carForm">
         <h2 class="form-title">Заявка</h2>
         <p class="form-subtitle form-subtitle-alert">
-            Заполните форму для подачи заявки на рассмотрение. Уведомление о статусе отобразится на этой странице.
-            <span class="form-subtitle-warning">⚠️ Будьте внимательны при заполнении поля «Гос/номер»</span>
+            Заполните форму для подачи заявки на рассмотрение. Уведомление о статусе отобразится в списке ваших заявок на этой странице.
+            <span class="form-subtitle-warning">⚠️ Будьте внимательны при заполнении поля «Гос/номер»<br>Ввод номера осуществляется на кириллице.</span>
         </p>
         <div class="new-entry__inputs">
             <div class="new-entry__column grid-item1"><label>Марка</label><input class="new-entry__input" type="text" name="carMake"></div>
-            <div class="new-entry__column grid-item2"><label>Гос/номер</label><input class="new-entry__input" type="text" name="stateNumber"></div>
+            <div class="new-entry__column grid-item2"><label>Гос/номер</label><input class="new-entry__input" type="text" name="stateNumber" data-type="plate-mask" maxlength="10" placeholder="А123BВ 77"></div>
             <div class="new-entry__column grid-item3"><label>Фамилия водителя</label><input class="new-entry__input" type="text" name="driverLastName"></div>
             <div class="new-entry__column grid-item4">
                 <label>ФИО инициатора <span class="required">*</span></label>
@@ -368,12 +368,10 @@ if (!$is_logged_in) {
     
     // ==================== ЗАКРЫТИЕ ВКЛАДКИ ====================
     window.addEventListener('beforeunload', function() {
-        localStorage.clear();
         sessionStorage.clear();
     });
     
     window.addEventListener('pagehide', function() {
-        localStorage.clear();
         sessionStorage.clear();
     });
     

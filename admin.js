@@ -11,20 +11,28 @@ $(document).ready(function() {
             cache: 'no-store'
         })
         .then(response => {
-            if (response.status === 401) {
-                // Сессия умерла — редирект на вход
+            if (response.status === 401 || response.status === 403) {
                 window.location.href = './';
+                return null;
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data && data.success && data.csrf_token) {
+                // ✅ ОБНОВЛЯЕМ токен в meta-теге HTML
+                $('meta[name="csrf-token"]').attr('content', data.csrf_token);
+                
+                // ✅ ОБНОВЛЯЕМ глобальную переменную, которую использует $.ajaxSetup
+                window.csrfToken = data.csrf_token;
             }
         })
         .catch(error => {
-            // Игнорируем ошибки сети
+            // Игнорируем ошибки сети, чтобы не спамить консоль
         });
     }
     
-    // Запускаем сразу при загрузке
+    // Запускаем сразу и каждые 5 минут
     sendHeartbeat();
-    
-    // И каждые 5 минут
     setInterval(sendHeartbeat, 5 * 60 * 1000);
 })();
 
@@ -38,6 +46,203 @@ $(document).ready(function() {
             }
         }
     });
+
+
+
+
+    // ======================== УПРАВЛЕНИЕ PLACEHOLDER ПРИ РЕДАКТИРОВАНИИ ========================
+
+// При клике "Редактировать" — показываем placeholder
+$(document).on('click', '.edit-btn', function() {
+    const $row = $(this).closest('tr');
+    
+    $row.find('.edit-field').each(function() {
+        const $field = $(this);
+        const originalPlaceholder = $field.data('original-placeholder');
+        
+        // Восстанавливаем placeholder из сохранённого значения
+        if (originalPlaceholder) {
+            $field.attr('placeholder', originalPlaceholder);
+        }
+    });
+});
+
+// При клике "Сохранить" — скрываем placeholder
+$(document).on('click', '.save-btn', function() {
+    const $row = $(this).closest('tr');
+    
+    // Убираем placeholder у всех полей
+    $row.find('.edit-field[placeholder]').each(function() {
+        $(this).attr('placeholder', '');
+    });
+});
+
+// При загрузке таблицы — скрываем placeholder у disabled полей
+function hidePlaceholdersInViewMode() {
+    $('.table-row:not(.editing) .edit-field[placeholder]').each(function() {
+        const $field = $(this);
+        const placeholder = $field.attr('placeholder');
+        
+        // Сохраняем оригинальный placeholder
+        $field.data('original-placeholder', placeholder);
+        
+        // Очищаем placeholder
+        $field.attr('placeholder', '');
+    });
+}
+
+// Вызываем после загрузки таблицы
+$(document).on('DOMNodeInserted', '#results', function() {
+    setTimeout(hidePlaceholdersInViewMode, 100);
+});
+
+// И при инициализации
+setTimeout(hidePlaceholdersInViewMode, 500);
+
+// ======================== ПОДСКАЗКИ ПРИ ПЕРЕПОЛНЕНИИ ПОЛЕЙ ========================
+
+function updateFieldTooltips() {
+    
+    // 1. Тултипы для полей ввода (ИСКЛЮЧАЕМ чекбоксы)
+    $('.table-cell .edit-field').not('.table-check').each(function() {
+        const $field = $(this);
+        
+        // Оборачиваем в wrapper если нужно
+        let $wrapper = $field.parent('.field-tooltip-wrapper');
+        if ($wrapper.length === 0) {
+            $field.wrap('<span class="field-tooltip-wrapper"></span>');
+            $wrapper = $field.parent('.field-tooltip-wrapper');
+        }
+        
+        function updateTooltip() {
+            // Получаем значение и убираем все пробелы по краям
+            let value = $field.val();
+            
+            // Если значение null/undefined или после trim() пустое — удаляем тултип
+            if (value === null || value === undefined || value.trim() === '') {
+                $wrapper.removeAttr('data-tooltip');
+                return;
+            }
+            
+            value = value.trim();
+            
+            // Проверяем переполнение
+            const isOverflowing = checkOverflow($field[0], value);
+            
+            // Тултип только если есть переполнение
+            if (isOverflowing) {
+                $wrapper.attr('data-tooltip', value);
+            } else {
+                // ✅ ЯВНО удаляем атрибут — это важно!
+                $wrapper.removeAttr('data-tooltip');
+            }
+        }
+        
+        updateTooltip();
+        $field.off('input.tooltip change.tooltip').on('input.tooltip change.tooltip', updateTooltip);
+    });
+    
+    // 2. Кастомные чекбоксы для неактивных строк
+    $('.table-row').each(function() {
+        const $row = $(this);
+        const isEditing = $row.hasClass('editing');
+        
+        $row.find('.table-check').each(function() {
+            const $checkbox = $(this);
+            const $cell = $checkbox.closest('.table-cell');
+            
+            if (!isEditing) {
+                $cell.addClass('checkbox-cell');
+                if ($checkbox.prop('checked')) {
+                    $cell.addClass('checkbox-checked');
+                } else {
+                    $cell.removeClass('checkbox-checked');
+                }
+            } else {
+                $cell.removeClass('checkbox-cell checkbox-checked');
+            }
+        });
+    });
+
+
+    hidePlaceholdersInViewMode();
+}
+
+function checkOverflow(field, value) {
+    if (!value) return false;
+    
+    try {
+        if (field.tagName === 'TEXTAREA') {
+            // Для textarea: сравниваем scrollHeight и clientHeight
+            return field.scrollHeight > field.clientHeight + 2;
+        } else {
+            // Для input: создаём клон и измеряем ширину
+            const computedStyle = window.getComputedStyle(field);
+            
+            const clone = document.createElement('span');
+            clone.style.cssText = `
+                position: absolute;
+                visibility: hidden;
+                white-space: pre;
+                font: ${computedStyle.font};
+                font-family: ${computedStyle.fontFamily};
+                font-size: ${computedStyle.fontSize};
+                font-weight: ${computedStyle.fontWeight};
+                letter-spacing: ${computedStyle.letterSpacing};
+                text-transform: ${computedStyle.textTransform};
+                padding: 0;
+                margin: 0;
+                border: none;
+            `;
+            clone.textContent = value;
+            
+            document.body.appendChild(clone);
+            const textWidth = clone.offsetWidth;
+            document.body.removeChild(clone);
+            
+            // Доступная ширина = clientWidth минус padding
+            const paddingLeft = parseFloat(computedStyle.paddingLeft) || 0;
+            const paddingRight = parseFloat(computedStyle.paddingRight) || 0;
+            const availableWidth = field.clientWidth - paddingLeft - paddingRight;
+            
+            return textWidth > availableWidth + 2; // +2 для погрешности
+        }
+    } catch (e) {
+        return false;
+    }
+}
+
+let resizeTimer;
+$(window).on('resize', function() {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(updateFieldTooltips, 250);
+});
+
+// Запускаем после загрузки таблицы
+$(document).on('DOMNodeInserted', '#results', function() {
+    setTimeout(updateFieldTooltips, 100);
+});
+
+// И при инициализации
+setTimeout(updateFieldTooltips, 500);
+
+    function showFieldError($field, $errorEl) {
+    $field.addClass('field-error-active');
+    if ($errorEl && $errorEl.length) {
+        $errorEl.addClass('visible');
+    }
+    // Добавляем анимацию тряски, если она есть в CSS
+    $field.addClass('shake');
+    setTimeout(() => {
+        $field.removeClass('shake');
+    }, 500);
+}
+
+function clearFieldError($field) {
+    $field.removeClass('field-error-active');
+    const errorId = $field.attr('id') + 'Error';
+    $('#' + errorId).removeClass('visible');
+}
 
 
  // ======================== СОРТИРОВКА ТАБЛИЦЫ ========================
@@ -451,7 +656,16 @@ function processRequest(id, action) {
                 showToast(response.message, 'error', 'request_error_' + id);
             }
         },
-        error: function() {
+        error: function(xhr) {
+            if (xhr.status === 403) {
+                showToast("Сессия обновляется. Повторите действие.", 'warning');
+                setTimeout(function() {
+                    location.reload();
+                }, 1500);
+                return;
+            }
+            
+            // Для остальных ошибок
             showToast("Ошибка при обработке заявки", 'error', 'request_network_error_' + id);
         }
     });
@@ -601,16 +815,18 @@ function processRequest(id, action) {
     }
 
     function hideTableLoader(callback) {
-        const loader = $('#tableLoader');
-        if (loader.length) {
-            loader.addClass('fade-out');
-            setTimeout(() => {
-                if (callback) callback();
-            }, 300);
-        } else {
+    const loader = $('#tableLoader');
+    if (loader.length) {
+        loader.addClass('fade-out');
+        setTimeout(() => {
             if (callback) callback();
-        }
+            updateFieldTooltips();
+        }, 300);
+    } else {
+        if (callback) callback();
+        updateFieldTooltips();
     }
+}
 
     // ======================== АВТОКОМПЛИТ МАРКИ ========================
     function initBrandAutocomplete($input) {
@@ -707,28 +923,43 @@ let pendingSubmitYearRecord = 0;
     $("#carForm").submit(function(event) {
     event.preventDefault();
 
+    // Получаем значения (используем правильные селекторы)
+    const fullNameApplicant = $("input[name='fullNameApplicant']").val().trim();
     const carMake = $("input[name='carMake']").val().trim();
     const stateNumber = $("input[name='stateNumber']").val().trim();
     const driverLastName = $("input[name='driverLastName']").val().trim();
-    const fullNameApplicant = $("input[name='fullNameApplicant']").val().trim();
-    const entryDate = $("#entryDate").val();
-    const outDate = $("#outDate").val();
+    const entryDate = $("input[name='entryDate']").val(); // Исправленный селектор
+    const outDate = $("input[name='outDate']").val();     // Исправленный селектор
     const comment = $("textarea[name='comment']").val().trim();
-    const yearRecord = $("input[name='yearRecord']").is(':checked') ? 1 : 0;
 
-    if (!carMake && !stateNumber && !driverLastName && !fullNameApplicant &&
-        !entryDate && !outDate && !comment) {
-        showToast("Пожалуйста, заполните хотя бы одно поле!", 'warning', 'validation_fields_' + Date.now());
+    // 1. СТРОГАЯ ПРОВЕРКА: ФИО инициатора обязательно
+    if (!fullNameApplicant) {
+        showFieldError($('#fullNameApplicant'), $('#fullNameError'));
+        showToast("Пожалуйста, укажите ФИО инициатора!", 'warning');
+        $("input[name='fullNameApplicant']").focus();
+        return; // Останавливаем выполнение, форма не отправится
+    }
+
+    // 2. ПРОВЕРКА: заполнено ли хотя бы одно дополнительное поле
+    if (!carMake && !stateNumber && !driverLastName && !entryDate && !outDate && !comment) {
+        showToast("Пожалуйста, заполните хотя бы одно дополнительное поле!", 'warning');
         return;
     }
 
-    // Сохраняем данные и показываем модалку
+    // Если всё ок, сохраняем данные и показываем модалку
     pendingSubmitData = $(this).serialize();
-    pendingSubmitYearRecord = yearRecord;
+    pendingSubmitYearRecord = $("input[name='yearRecord']").is(':checked') ? 1 : 0;
     
     $('#confirmSubmitText').text('Вы уверены, что хотите добавить эту запись?');
     $('#confirmSubmitOk').text('Добавить');
     $('#confirmSubmitModal').addClass('active');
+});
+
+
+$("#fullNameApplicant").on('input', function() {
+    if ($(this).val().trim()) {
+        clearFieldError($(this));
+    }
 });
 
 // ======================== ОБРАБОТЧИКИ МОДАЛКИ ПОДТВЕРЖДЕНИЯ ========================
@@ -952,7 +1183,7 @@ $('#newEntryBtnBack').click(function() {
 $("#clearFormBtn").click(function() {
     $("#carForm")[0].reset();
     
-    // Сбрасываем ошибки валидации
+    // Сбрасываем все визуальные ошибки
     $('.field-error').removeClass('visible');
     $('.required-field').removeClass('field-error-active');
     
