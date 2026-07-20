@@ -76,11 +76,19 @@ body::before {
 }
 
 /* ==================== ЛОГОТИП ==================== */
+
+.logo-wrap {
+  display: flex;
+  justify-content: flex-end;
+  padding: 20px;
+}
+
 .logo {
     display: block;
-    margin: 20px auto;
     max-width: 150px;
     filter: drop-shadow(0 4px 6px rgba(0,0,0,0.3));
+    object-fit: contain;
+    justify-self: center;
 }
 
 /* ==================== КНОПКИ ГЛАВНОГО МЕНЮ ==================== */
@@ -159,11 +167,9 @@ body::before {
     backdrop-filter: blur(10px);
     color: var(--white);
     border: 1px solid var(--glass-border);
-    margin: 20px;
     display: block;
     width: fit-content;
-    margin-left: auto;
-    margin-right: 20px;
+
 }
 
 .new-entry__btn-back:hover {
@@ -316,7 +322,7 @@ body::before {
     white-space: normal;
     word-wrap: break-word;
     overflow-wrap: break-word;
-    min-width: 120px;
+    min-width: 125px;
     cursor: pointer;
     user-select: none;
     position: relative;
@@ -490,8 +496,8 @@ textarea.edit-field {
     opacity: 1 !important;
     pointer-events: auto !important;
     position: static !important;
-    width: auto !important;
-    height: auto !important;
+    width: auto ;
+    height: auto;
     cursor: pointer !important;
 }
 
@@ -505,7 +511,7 @@ textarea.edit-field {
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    color: #34c759;
+    color: #29ff5e;
     font-size: 22px;
     font-weight: bold;
     line-height: 1;
@@ -519,8 +525,8 @@ textarea.edit-field {
 }
 
 .table-check {
-    width: 20px;
-    height: 20px;
+    width: 24px !important;
+    height: 24px !important;
     accent-color: var(--primary);
     cursor: pointer;
     display: inline-block;
@@ -812,6 +818,11 @@ textarea.edit-field {
 .confirm-modal-actions .btn-confirm, .confirm-submit-actions .btn-confirm {
     background: linear-gradient(135deg, var(--danger) 0%, #ff5247 100%);
     box-shadow: 0 4px 16px rgba(255, 59, 48, 0.3);
+}
+
+#confirmSubmitOk {
+  background: linear-gradient(135deg, var(--success) 0%, #42c061 100%);
+  box-shadow: 0 4px 16px #42c061;
 }
 
 .confirm-modal-actions .btn-confirm:hover, .confirm-submit-actions .btn-confirm:hover {

@@ -68,7 +68,10 @@ require_once __DIR__ . '/admin_auth.php';
 </div>
 
 <!-- ЛОГО -->
-<img class="logo" src="./img/logo.png" alt="">
+ <div class="logo-wrap">
+  <!-- <img class="logo" src="./img/logo.png" alt=""> -->
+  <button id="newEntryBtnBack" class="btn new-entry__btn-back" style="display: none;">Назад</button>
+ </div>
 
 <!-- ГЛАВНОЕ МЕНЮ -->
 <div class="choice">
@@ -87,8 +90,6 @@ require_once __DIR__ . '/admin_auth.php';
     </button>
 </div>
 
-<!-- КНОПКА НАЗАД -->
-<button id="newEntryBtnBack" class="btn new-entry__btn-back" style="display: none;">Назад</button>
 
 <!-- ФОРМА ДОБАВЛЕНИЯ ЗАПИСИ -->
 <div class="new-entry" style="display: none;">

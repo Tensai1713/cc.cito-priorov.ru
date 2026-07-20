@@ -250,7 +250,11 @@ if (!$is_logged_in) {
     </div>
 </div>
 
-<img class="logo" src="./img/logo.png" alt="">
+<!-- <img class="logo" src="./img/logo.png" alt=""> -->
+
+
+
+
 
 <div class="new-entry">
     <form class="new-entry__panel" id="carForm">
@@ -298,83 +302,76 @@ if (!$is_logged_in) {
 
 <script>
 (function() {
-    // ==================== АВТОВЫХОД ТОЛЬКО НА КЛИЕНТЕ ====================
-    
-    const TAB_TOKEN = '<?= $_SESSION['auth_tab_token'] ?? '' ?>';
-    const TIMEOUT_MS = 15 * 60 * 1000; // 15 минут бездействия
-    const CHECK_INTERVAL = 30000;      // Проверка каждые 30 секунд
-    
-    let logoutInProgress = false;
-    
-    // Функция выхода — ТОЛЬКО клиентская очистка + редирект
+    const TAB_INACTIVITY_TIMEOUT = 15 * 60 * 1000; // 15 минут
+    let inactivityTimer = null;
+    let isLoggingOut = false;
+
+    // Получаем статус авторизации с сервера при загрузке страницы
+    const isPhpAuthorized = <?= json_encode(isAuthorized()) ?>;
+
+    // ==================== 1. ЛОГИКА ЗАКРЫТИЯ / ОБНОВЛЕНИЯ ВКЛАДКИ ====================
+    if (isPhpAuthorized) {
+        // Если PHP говорит, что мы вошли, но в sessionStorage нет метки -> 
+        // значит, вкладку закрыли и открыли новую (или это новая вкладка).
+        if (sessionStorage.getItem('tab_is_active') !== 'true') {
+            // Принудительно выбрасываем на логин, чтобы очистить PHP-сессию
+            window.location.replace('./?force_logout=1');
+        }
+        // Если метка ЕСТЬ -> значит, пользователь просто обновил страницу (F5 / Ctrl+F5).
+        // Мы ничего не делаем, он остается в системе.
+    }
+
+    // Ставим (или обновляем) метку, что эта вкладка активна.
+    // Она сохранится при F5, но удалится браузером при закрытии вкладки.
+    sessionStorage.setItem('tab_is_active', 'true');
+
+    // ==================== 2. ЛОГИКА ПЕРЕКЛЮЧЕНИЯ ВКЛАДОК ====================
     function doLogout() {
-        if (logoutInProgress) return;
-        logoutInProgress = true;
+        if (isLoggingOut) return;
+        isLoggingOut = true;
         
-        localStorage.clear();
-        sessionStorage.clear();
+        // Очищаем метку
+        sessionStorage.removeItem('tab_is_active');
         
-        
-        setTimeout(function() {
-            window.location.href = './';
-        }, 300);
+        // Делаем редирект с флагом, чтобы PHP сразу очистил сессию
+        window.location.replace('./?force_logout=1');
     }
-    
-    // ==================== ПРОВЕРКА ПРИ ЗАГРУЗКЕ ====================
-    const storedTabToken = sessionStorage.getItem('auth_tab_token');
-    
-    if (storedTabToken && storedTabToken !== TAB_TOKEN) {
-        localStorage.clear();
-        sessionStorage.clear();
-        window.location.href = './';
-        return;
+
+    function startInactivityTimer() {
+        if (inactivityTimer) clearTimeout(inactivityTimer);
+        inactivityTimer = setTimeout(doLogout, TAB_INACTIVITY_TIMEOUT);
     }
-    
-    if (TAB_TOKEN) {
-        sessionStorage.setItem('auth_tab_token', TAB_TOKEN);
-    }
-    
-    // ==================== ТАЙМЕР БЕЗДЕЙСТВИЯ ====================
-    let lastActivity = Date.now();
-    
-    function updateActivity() {
-        lastActivity = Date.now();
-    }
-    
-    const events = ['mousemove', 'mousedown', 'keydown', 'keypress', 'scroll', 'touchstart', 'click', 'wheel'];
-    events.forEach(function(e) {
-        document.addEventListener(e, updateActivity, { passive: true, capture: true });
-    });
-    
-    function checkTimeout() {
-        if (Date.now() - lastActivity > TIMEOUT_MS) {
-            doLogout();
+
+    function stopInactivityTimer() {
+        if (inactivityTimer) {
+            clearTimeout(inactivityTimer);
+            inactivityTimer = null;
         }
     }
-    
-    setInterval(checkTimeout, CHECK_INTERVAL);
-    
-    // Предупреждение за 1 минуту
-    let warned = false;
-    function checkWarning() {
-        if (Date.now() - lastActivity > TIMEOUT_MS - 60000 && !warned) {
-            warned = true;
-            if (typeof showToast === 'function') {
-                showToast('Автоматический выход через 1 минуту', 'warning', 'auto_logout_warning');
-            }
+
+    // Отслеживаем видимость вкладки (ушел пользователь или вернулся)
+    document.addEventListener('visibilitychange', function() {
+        if (document.hidden) {
+            // Пользователь переключился на другую вкладку -> запускаем таймер на 15 мин
+            startInactivityTimer();
+        } else {
+            // Пользователь вернулся на вкладку -> останавливаем таймер
+            stopInactivityTimer();
+        }
+    });
+
+    // ==================== 3. СБРОС ТАЙМЕРА ПРИ АКТИВНОСТИ НА СТРАНИЦЕ ====================
+    // Если пользователь что-то делает на странице, таймер не должен сработать
+    function resetTimerOnActivity() {
+        if (!document.hidden) {
+            stopInactivityTimer();
         }
     }
-    setInterval(checkWarning, CHECK_INTERVAL);
-    
-    // ==================== ЗАКРЫТИЕ ВКЛАДКИ ====================
-    window.addEventListener('beforeunload', function() {
-        sessionStorage.clear();
+
+    ['mousedown', 'keydown', 'scroll', 'touchstart', 'click'].forEach(function(evt) {
+        document.addEventListener(evt, resetTimerOnActivity, { passive: true });
     });
-    
-    window.addEventListener('pagehide', function() {
-        sessionStorage.clear();
-    });
-    
+
 })();
 </script>
 
