@@ -100,9 +100,12 @@ require_once __DIR__ . '/admin_auth.php';
                 <input class="new-entry__input" type="text" name="carMake">
             </div>
             <div class="new-entry__column grid-item2">
-                <label>Гос/номер</label>
-                <input class="new-entry__input" type="text" name="stateNumber" data-type="plate-mask" maxlength="10" placeholder="А123BВ 77">
-            </div>
+    <label>Гос/номер</label>
+    <div class="plate-input-group">
+        <input class="plate-main" type="text" name="stateNumberMain" placeholder="А123ТВ" data-type="plate-normalize" maxlength="10">
+        <input class="plate-region" type="text" name="stateRegion" placeholder="777" data-type="plate-normalize" maxlength="5">
+    </div>
+</div>
             <div class="new-entry__column grid-item3">
                 <label>Фамилия водителя</label>
                 <input class="new-entry__input" type="text" name="driverLastName">
@@ -198,6 +201,14 @@ require_once __DIR__ . '/admin_auth.php';
             <button class="btn btn-cancel" id="confirmSubmitCancel">Отмена</button>
             <button class="btn btn-confirm" id="confirmSubmitOk">Отправить</button>
         </div>
+    </div>
+</div>
+
+
+<div id="screenLoader" class="screen-loader">
+    <div class="screen-loader-content">
+        <div class="loading-spinner"></div>
+        <div class="loader-text">Загрузка...</div>
     </div>
 </div>
 

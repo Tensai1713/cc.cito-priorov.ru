@@ -449,9 +449,76 @@
     }
 }
 
+/* ==================== ГОСНОМЕР В ТАБЛИЦАХ (ДВА ИНПУТА В РЯД) ==================== */
+
+.plate-row {
+    display: flex;
+    gap: 8px;
+    width: 100%;
+}
+
+.plate-row-main {
+    flex: 1; /* Занимает всё свободное место */
+    min-width: 0; /* Чтобы flex не ломался */
+}
+
+.plate-row-region {
+    width: 90px; /* Фиксированная ширина для региона */
+    flex-shrink: 0; /* Не сжимается */
+}
 
 
 
+/* ==================== КНОПКА ОТКАТА ==================== */
+
+.actions-cell {
+    position: relative;
+}
+
+.undo-btn {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: 1px solid rgba(255, 193, 7, 0.4);
+    border-radius: 50%;
+    background: rgba(255, 193, 7, 0.15);
+    color: #ffc107;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    z-index: 2;
+}
+
+.undo-btn:hover {
+    background: rgba(255, 193, 7, 0.3);
+    border-color: rgba(255, 193, 7, 0.7);
+    transform: rotate(-45deg);
+    box-shadow: 0 0 12px rgba(255, 193, 7, 0.4);
+}
+
+.undo-btn:active {
+    transform: rotate(-90deg) scale(0.95);
+}
+
+.undo-btn svg {
+    width: 16px;
+    height: 16px;
+    stroke-width: 2;
+}
+
+.undo-btn.show {
+    animation: undoAppear 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+@keyframes undoAppear {
+    0% { opacity: 0; transform: scale(0.5) rotate(90deg); }
+    100% { opacity: 1; transform: scale(1) rotate(0); }
+}
 
 /* ==================== АДАПТИВНОСТЬ АДМИНКИ ==================== */
 @media (max-width: 768px) {
@@ -493,4 +560,3 @@
         font-size: 36px;
     }
 }
-

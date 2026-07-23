@@ -1,5 +1,12 @@
 <?php
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+if (empty($_SESSION['csrf_token'])) {
+    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+}
 require_once __DIR__ . '/auth_system.php';
+
 
 $error = '';
 $is_logged_in = isAuthorized();
@@ -9,21 +16,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$is_logged_in) {
     $login = trim($_POST['login'] ?? '');
     $password = $_POST['password'] ?? '';
     
-    if (mb_strtolower($login) === mb_strtolower(AUTH_LOGIN) && $password === AUTH_PASSWORD) {
-    $_SESSION['auth_user'] = true;
-    $_SESSION['auth_login'] = $login;
-    $_SESSION['auth_time'] = time();
-    $_SESSION['auth_last_activity'] = time();
-    $_SESSION['auth_tab_token'] = bin2hex(random_bytes(16)); // ← Уникальный токен вкладки
-    
-    session_write_close();
-    session_start();
-    
-    header('Location: ' . $_SERVER['PHP_SELF']);
-    exit;
-} else {
+    // Добавлена проверка на пустые поля, чтобы не тратить ресурсы и не вводить в заблуждение
+    if ($login !== '' && $password !== '' && mb_strtolower($login) === mb_strtolower(AUTH_LOGIN) && $password === AUTH_PASSWORD) {
+        $_SESSION['auth_user'] = true;
+        $_SESSION['auth_login'] = $login;
+        $_SESSION['auth_time'] = time();
+        $_SESSION['auth_last_activity'] = time();
+        $_SESSION['auth_tab_token'] = bin2hex(random_bytes(16));
+        
+        // Используем жесткий редирект на корень, это надежнее чем $_SERVER['PHP_SELF']
+        header('Location: ./?login_success=1');
+        exit;
+    } else {
         $error = 'Неверный логин или пароль';
-        sleep(1);
     }
 }
 
@@ -184,6 +189,7 @@ if (!$is_logged_in) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="<?= htmlspecialchars($_SESSION['csrf_token']) ?>">
     <title>Заявка </title>
     <link rel="shortcut icon" href="img/favicon.ico" type="image/x-icon">
     <link rel="icon" href="img/favicon.ico" type="image/x-icon">
@@ -261,11 +267,17 @@ if (!$is_logged_in) {
         <h2 class="form-title">Заявка</h2>
         <p class="form-subtitle form-subtitle-alert">
             Заполните форму для подачи заявки на рассмотрение. Уведомление о статусе отобразится в списке ваших заявок на этой странице.
-            <span class="form-subtitle-warning">⚠️ Будьте внимательны при заполнении поля «Гос/номер»<br>Ввод номера осуществляется на кириллице.</span>
+            <span class="form-subtitle-warning">⚠️ Будьте внимательны при заполнении поля «Гос/номер»</span>
         </p>
         <div class="new-entry__inputs">
             <div class="new-entry__column grid-item1"><label>Марка</label><input class="new-entry__input" type="text" name="carMake"></div>
-            <div class="new-entry__column grid-item2"><label>Гос/номер</label><input class="new-entry__input" type="text" name="stateNumber" data-type="plate-mask" maxlength="10" placeholder="А123BВ 77"></div>
+            <div class="new-entry__column grid-item2">
+                <label>Гос/номер</label>
+                <div class="plate-input-group">
+                    <input class="plate-main" type="text" name="stateNumberMain" placeholder="А123ТВ" data-type="plate-normalize" maxlength="10">
+                    <input class="plate-region" type="text" name="stateRegion" placeholder="777" data-type="plate-normalize" maxlength="5">
+                </div>
+            </div>
             <div class="new-entry__column grid-item3"><label>Фамилия водителя</label><input class="new-entry__input" type="text" name="driverLastName"></div>
             <div class="new-entry__column grid-item4">
                 <label>ФИО инициатора <span class="required">*</span></label>
@@ -298,7 +310,12 @@ if (!$is_logged_in) {
     </div>
 </div>
 
-
+<div id="screenLoader" class="screen-loader">
+    <div class="screen-loader-content">
+        <div class="loading-spinner"></div>
+        <div class="loader-text">Загрузка...</div>
+    </div>
+</div>
 
 <script>
 (function() {
@@ -306,34 +323,28 @@ if (!$is_logged_in) {
     let inactivityTimer = null;
     let isLoggingOut = false;
 
-    // Получаем статус авторизации с сервера при загрузке страницы
     const isPhpAuthorized = <?= json_encode(isAuthorized()) ?>;
+    const urlParams = new URLSearchParams(window.location.search);
+    const isFreshLogin = urlParams.has('login_success');
 
-    // ==================== 1. ЛОГИКА ЗАКРЫТИЯ / ОБНОВЛЕНИЯ ВКЛАДКИ ====================
     if (isPhpAuthorized) {
-        // Если PHP говорит, что мы вошли, но в sessionStorage нет метки -> 
-        // значит, вкладку закрыли и открыли новую (или это новая вкладка).
-        if (sessionStorage.getItem('tab_is_active') !== 'true') {
-            // Принудительно выбрасываем на логин, чтобы очистить PHP-сессию
+        // Выкидываем ТОЛЬКО если это НЕ свежий вход И нет метки активной вкладки
+        if (!isFreshLogin && sessionStorage.getItem('tab_is_active') !== 'true') {
             window.location.replace('./?force_logout=1');
         }
-        // Если метка ЕСТЬ -> значит, пользователь просто обновил страницу (F5 / Ctrl+F5).
-        // Мы ничего не делаем, он остается в системе.
     }
 
-    // Ставим (или обновляем) метку, что эта вкладка активна.
-    // Она сохранится при F5, но удалится браузером при закрытии вкладки.
     sessionStorage.setItem('tab_is_active', 'true');
 
-    // ==================== 2. ЛОГИКА ПЕРЕКЛЮЧЕНИЯ ВКЛАДОК ====================
+    // Очищаем URL от флага login_success, чтобы он не светился в адресной строке
+    if (isFreshLogin) {
+        window.history.replaceState({}, document.title, window.location.pathname);
+    }
+
     function doLogout() {
         if (isLoggingOut) return;
         isLoggingOut = true;
-        
-        // Очищаем метку
         sessionStorage.removeItem('tab_is_active');
-        
-        // Делаем редирект с флагом, чтобы PHP сразу очистил сессию
         window.location.replace('./?force_logout=1');
     }
 
@@ -349,19 +360,14 @@ if (!$is_logged_in) {
         }
     }
 
-    // Отслеживаем видимость вкладки (ушел пользователь или вернулся)
     document.addEventListener('visibilitychange', function() {
         if (document.hidden) {
-            // Пользователь переключился на другую вкладку -> запускаем таймер на 15 мин
             startInactivityTimer();
         } else {
-            // Пользователь вернулся на вкладку -> останавливаем таймер
             stopInactivityTimer();
         }
     });
 
-    // ==================== 3. СБРОС ТАЙМЕРА ПРИ АКТИВНОСТИ НА СТРАНИЦЕ ====================
-    // Если пользователь что-то делает на странице, таймер не должен сработать
     function resetTimerOnActivity() {
         if (!document.hidden) {
             stopInactivityTimer();
@@ -371,9 +377,11 @@ if (!$is_logged_in) {
     ['mousedown', 'keydown', 'scroll', 'touchstart', 'click'].forEach(function(evt) {
         document.addEventListener(evt, resetTimerOnActivity, { passive: true });
     });
-
 })();
 </script>
+
+
+
 
 </body>
 </html>

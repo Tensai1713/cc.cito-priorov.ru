@@ -103,164 +103,56 @@ $(document).ready(function() {
     });
 
 
-// ======================== МАСКА ГОСНОМЕРА РФ (СТРОГАЯ ПО ПОЗИЦИЯМ) ========================
-
-// Разрешённые буквы (только те, что совпадают с латиницей)
+// ======================== ПРОВЕРКА ГОСНОМЕРА ========================
 const PLATE_LETTERS = 'АВЕКМНОРСТУХ';
+const LATIN_TO_CYRILLIC_MAP = { 'A':'А','B':'В','E':'Е','K':'К','M':'М','H':'Н','O':'О','P':'Р','C':'С','T':'Т','Y':'У','X':'Х', 'a':'А','b':'В','e':'Е','k':'К','m':'М','h':'Н','o':'О','p':'Р','c':'С','t':'Т','y':'У','x':'Х' };
 
-// Формат: Б ЦЦЦ ББ [пробел] ЦЦЦ
-// Позиции: 0=буква, 1-3=цифры, 4-5=буквы, 6=пробел, 7-9=цифры региона
-
-function applyPlateMask(value) {
-    value = value.toUpperCase();
-    let result = '';
-    
-    // Извлекаем все валидные символы из ввода
-    const letters = [];
-    const digits = [];
-    
-    for (let char of value) {
-        if (PLATE_LETTERS.includes(char)) {
-            letters.push(char);
-        } else if (/\d/.test(char)) {
-            digits.push(char);
-        }
-    }
-    
-    // Собираем результат строго по позициям
-    let letterIndex = 0;
-    let digitIndex = 0;
-    
-    // Позиция 0: первая буква
-    if (letterIndex < letters.length) {
-        result += letters[letterIndex++];
-    }
-    
-    // Позиции 1-3: три цифры
-    for (let i = 0; i < 3; i++) {
-        if (digitIndex < digits.length) {
-            result += digits[digitIndex++];
-        } else {
-            break;
-        }
-    }
-    
-    // Позиции 4-5: вторая и третья буквы
-    for (let i = 0; i < 2; i++) {
-        if (letterIndex < letters.length) {
-            result += letters[letterIndex++];
-        } else {
-            break;
-        }
-    }
-    
-    // Если основной номер полный (6 символов) и есть ещё цифры — добавляем пробел и регион
-    if (result.length === 6 && digitIndex < digits.length) {
-        result += ' '; // Автоматический пробел
-        
-        // Позиции 7-9: до 3 цифр региона
-        for (let i = 0; i < 3; i++) {
-            if (digitIndex < digits.length) {
-                result += digits[digitIndex++];
-            } else {
-                break;
-            }
-        }
-    }
-    
-    return result;
+function isAllowedPlateChar(char) {
+    if (!char) return false;
+    if (/\d/.test(char) || char === ' ') return true;
+    if (PLATE_LETTERS.includes(char.toUpperCase())) return true;
+    return !!(LATIN_TO_CYRILLIC_MAP[char] || LATIN_TO_CYRILLIC_MAP[char.toUpperCase()]);
 }
 
-// Определяем, какой тип символа разрешён на текущей позиции курсора
-function getAllowedTypeAtPosition(position) {
-    if (position === 0) return 'letter';           // Позиция 0: буква
-    if (position >= 1 && position <= 3) return 'digit'; // Позиции 1-3: цифры
-    if (position === 4 || position === 5) return 'letter'; // Позиции 4-5: буквы
-    if (position === 6) return 'space';            // Позиция 6: пробел (автоматический)
-    if (position >= 7 && position <= 9) return 'digit'; // Позиции 7-9: цифры региона
-    return null;
+function normalizePlateText(text) {
+    if (!text) return '';
+    let normalized = '';
+    for (let char of text) {
+        const cyrillic = LATIN_TO_CYRILLIC_MAP[char] || LATIN_TO_CYRILLIC_MAP[char.toUpperCase()];
+        normalized += cyrillic ? cyrillic : (isAllowedPlateChar(char) ? char : '');
+    }
+    return normalized.toUpperCase();
 }
 
-// Обработчик ввода
-$(document).on('input', 'input[data-type="plate-mask"]', function() {
-    const $input = $(this);
-    const cursorPos = this.selectionStart;
-    const oldValue = $input.val();
-    const newValue = applyPlateMask(oldValue);
-    
-    $input.val(newValue);
-    
-    // Восстанавливаем позицию курсора
-    const diff = newValue.length - oldValue.length;
-    const newPos = Math.max(0, Math.min(cursorPos + diff, newValue.length));
-    this.setSelectionRange(newPos, newPos);
+$(document).on('keydown', 'input[data-type="plate-normalize"]', function(e) {
+    const allowed = ['Backspace','Delete','Tab','Enter','Escape','ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Home','End'];
+    if (allowed.includes(e.key) || e.ctrlKey || e.metaKey) return;
+    if (!isAllowedPlateChar(e.key)) { e.preventDefault(); return; }
+    const cyrillic = LATIN_TO_CYRILLIC_MAP[e.key] || LATIN_TO_CYRILLIC_MAP[e.key.toUpperCase()];
+    if (cyrillic && !PLATE_LETTERS.includes(e.key.toUpperCase())) {
+        e.preventDefault();
+        const input = this;
+        const pos = input.selectionStart;
+        input.value = (input.value.slice(0, pos) + cyrillic + input.value.slice(pos)).toUpperCase();
+        input.setSelectionRange(pos + 1, pos + 1);
+    }
 });
 
-// Блокировка запрещённых символов ДО ввода
-$(document).on('keydown', 'input[data-type="plate-mask"]', function(e) {
-    // Разрешаем служебные клавиши
-    const allowed = [
-        'Backspace', 'Delete', 'Tab', 'Enter', 'Escape',
-        'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown',
-        'Home', 'End'
-    ];
-    
-    if (allowed.includes(e.key)) return;
-    if (e.ctrlKey || e.metaKey) return;
-    
+$(document).on('input', 'input[data-type="plate-normalize"]', function() {
     const input = this;
-    const cursorPos = input.selectionStart;
-    const currentValue = input.value;
-    const char = e.key.toUpperCase();
-    
-    // Если курсор на позиции 6 (где должен быть пробел) и вводится цифра
-    if (cursorPos === 6 && currentValue.length === 6 && /\d/.test(char)) {
-        e.preventDefault();
-        // Автоматически добавляем пробел + цифру
-        const newValue = currentValue + ' ' + char;
-        input.value = newValue;
-        input.setSelectionRange(8, 8); // Курсор после цифры региона
-        return;
-    }
-    
-    // Определяем, что можно вводить на текущей позиции
-    const allowedType = getAllowedTypeAtPosition(cursorPos);
-    
-    if (!allowedType) {
-        e.preventDefault();
-        return;
-    }
-    
-    if (allowedType === 'letter') {
-        if (!PLATE_LETTERS.includes(char)) {
-            e.preventDefault();
-        }
-    } else if (allowedType === 'digit') {
-        if (!/\d/.test(char)) {
-            e.preventDefault();
-        }
-    } else if (allowedType === 'space') {
-        // Пробел в позиции 6 вставляется автоматически
-        e.preventDefault();
-    }
+    const pos = input.selectionStart;
+    const newVal = normalizePlateText(input.value);
+    if (input.value !== newVal) { input.value = newVal; input.setSelectionRange(pos, pos); }
 });
 
-// При вставке (paste) — обрабатываем через applyPlateMask
-$(document).on('paste', 'input[data-type="plate-mask"]', function(e) {
+$(document).on('paste', 'input[data-type="plate-normalize"]', function(e) {
     e.preventDefault();
-    const pastedText = (e.originalEvent.clipboardData || window.clipboardData).getData('text');
-    const $input = $(this);
-    const cursorPos = this.selectionStart;
-    const currentValue = $input.val();
-    
-    // Вставляем вставленный текст в текущую позицию
-    const newValue = currentValue.slice(0, cursorPos) + pastedText + currentValue.slice(cursorPos);
-    const maskedValue = applyPlateMask(newValue);
-    
-    $input.val(maskedValue);
-    
-    // Устанавливаем курсор в конец
-    this.setSelectionRange(maskedValue.length, maskedValue.length);
+    const input = this;
+    const pasted = normalizePlateText((e.originalEvent.clipboardData || window.clipboardData).getData('text'));
+    const pos = input.selectionStart;
+    const newVal = normalizePlateText(input.value.slice(0, pos) + pasted + input.value.slice(pos));
+    input.value = newVal;
+    input.setSelectionRange(newVal.length, newVal.length);
 });
 
     // ======================== СИСТЕМА УПРАВЛЕНИЯ УВЕДОМЛЕНИЯМИ ========================
@@ -297,6 +189,8 @@ $(document).on('paste', 'input[data-type="plate-mask"]', function(e) {
             markNotificationAsShown(notificationId);
         }
     }
+
+    
 
     // ======================== ВАЛИДАЦИЯ ПОЛЕЙ ========================
     function showFieldError($field, $errorEl) {
