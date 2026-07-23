@@ -748,7 +748,7 @@ textarea.edit-field {
 .confirm-modal, .confirm-submit-modal {
     display: none;
     position: fixed;
-    z-index: 10000;
+    z-index: 999999;
     left: 0;
     top: 0;
     width: 100%;
@@ -1863,7 +1863,7 @@ input[type="date"], input[type="time"] { color-scheme: dark; }
     background: rgba(0, 0, 0, 0.7);
     backdrop-filter: blur(5px);
     -webkit-backdrop-filter: blur(5px);
-    z-index: 9999;
+    z-index: 9999999999999999;
     display: none;
     align-items: center;
     justify-content: center;

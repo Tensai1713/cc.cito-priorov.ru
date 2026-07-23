@@ -43,6 +43,7 @@ $(document).ready(function() {
     let resizeTimer;
     let hasUnsavedChanges = false;
     const undoStore = {};
+    let isFirstPoll = true;
 
     // =========================================================================
     // 3. ЗАЩИТА ОТ ПОТЕРИ ДАННЫХ
@@ -146,14 +147,28 @@ function hideScreenLoader() {
     // 6. РАБОТА С ЗАЯВКАМИ
     // =========================================================================
     function loadPendingRequests() {
-        $.ajax({ type: "GET", url: "get_pending_requests.php", dataType: 'json', success: function(response) {
-            if (response.success) {
-                currentRequests = response.requests;
-                if (response.count > lastRequestCount && lastRequestCount > 0) showToast('Поступила новая заявка!', 'info');
-                lastRequestCount = response.count;
-                updateMessageUI(response.count);
+        $.ajax({ 
+            type: "GET", 
+            url: "get_pending_requests.php", 
+            dataType: 'json', 
+            success: function(response) {
+                if (response.success) {
+                    const newCount = response.count || 0;
+                    currentRequests = response.requests || [];
+                    
+                    // Показываем уведомление ТОЛЬКО если это не первый опрос И количество заявок увеличилось
+                    if (!isFirstPoll && newCount > lastRequestCount) {
+                        showToast('Поступила новая заявка!', 'info', 'new_req_' + Date.now());
+                    }
+                    
+                    lastRequestCount = newCount;
+                    updateMessageUI(newCount);
+                    
+                    // После первого успешного опроса сбрасываем флаг
+                    isFirstPoll = false;
+                }
             }
-        }});
+        });
     }
 
     function updateMessageUI(count) {
@@ -169,24 +184,33 @@ function hideScreenLoader() {
         }
     }
 
-    $('#messageCard').click(function() {
+
+    function renderRequestsList() {
         const $list = $('#requestsList').empty();
         if (currentRequests.length === 0) {
-            $list.html('<div class="empty-list">Нет заявок</div>');
+            $list.html('<div class="empty-list">Нет необработанных заявок</div>');
         } else {
             currentRequests.forEach(function(req) {
                 const date = req.created_at ? new Date(req.created_at).toLocaleString('ru-RU') : '';
                 const item = $(`<div class="request-list-item" data-id="${req.id}">
-                    <div class="request-list-item-header"><span class="request-list-item-title">${escapeHtml(req.full_name_applicant || 'Без ФИО')}</span><span class="request-list-item-date">${date}</span></div>
+                    <div class="request-list-item-header">
+                        <span class="request-list-item-title">${escapeHtml(req.full_name_applicant || 'Без ФИО')}</span>
+                        <span class="request-list-item-date">${date}</span>
+                    </div>
                     <div class="request-list-item-body">
                         ${req.car_make ? '<span class="request-tag">' + escapeHtml(req.car_make) + '</span>' : ''}
                         ${req.state_number ? '<span class="request-tag">' + escapeHtml(req.state_number) + '</span>' : ''}
                         <span class="request-tag request-tag-id">#${req.id}</span>
-                    </div></div>`);
+                    </div>
+                </div>`);
                 item.click(() => openRequestDetail(req.id));
                 $list.append(item);
             });
         }
+    }
+
+    $('#messageCard').click(function() {
+        renderRequestsList();
         $('#requestsListModal').fadeIn(200);
     });
 
@@ -219,18 +243,65 @@ function hideScreenLoader() {
     $('#approveBtn').click(() => currentRequestId && processRequest(currentRequestId, 'approve'));
     $('#rejectBtn').click(() => currentRequestId && processRequest(currentRequestId, 'reject'));
 
-    function processRequest(id, action) {
-      showScreenLoader();
-        $.ajax({ type: "POST", url: "process_request.php", data: { id: id, action: action }, dataType: 'json', success: function(response) {
-            if (response.success) {
+ function processRequest(id, action) {
+        showScreenLoader();
+        
+        $.ajax({
+            type: "POST",
+            url: "process_request.php",
+            data: { id: id, action: action },
+            dataType: 'json'
+        })
+        .done(function(response) {
+            hideScreenLoader();
+            
+            if (response && response.success) {
                 showToast(response.message, action === 'approve' ? 'success' : 'warning', 'request_' + action + '_' + id);
-                $('#requestDetailModal').fadeOut(200);
+                
+                // 1. Мгновенно убираем обработанную заявку из локального массива
+                currentRequests = currentRequests.filter(req => req.id !== id);
+                const remainingCount = currentRequests.length;
+                
+                // 2. Обновляем бейдж и текст в интерфейсе
+                updateMessageUI(remainingCount);
+                
+                // 3. Умная логика управления модалками
+                if (remainingCount > 0) {
+                    // Заявки ЕСТЬ: 
+                    // Сначала обновляем содержимое списка
+                    renderRequestsList();
+                    // Закрываем окно деталей
+                    $('#requestDetailModal').fadeOut(200);
+                    // ГАРАНТИРОВАННО показываем окно списка (на случай, если оно скрылось)
+                    $('#requestsListModal').show(); 
+                } else {
+                    // Заявок НЕТ:
+                    // Закрываем всё полностью
+                    $('#requestDetailModal').fadeOut(200);
+                    $('#requestsListModal').fadeOut(200);
+                }
+                
+                // 4. Фоновое обновление данных с сервера для полной синхронизации
                 loadPendingRequests();
                 updateTableIfVisible();
+                
             } else {
-                showToast(response.message, 'error', 'request_error_' + id);
+                const errorMsg = (response && response.message) ? response.message : "Неизвестная ошибка при обработке";
+                showToast(errorMsg, 'error', 'request_error_' + id);
             }
-        }});
+        })
+        .fail(function(xhr) {
+            hideScreenLoader();
+            if (xhr.status === 403) {
+                showToast("Сессия обновляется. Повторите действие.", 'warning');
+                setTimeout(() => location.reload(), 1500);
+            } else {
+                showToast("Ошибка сети или сервера при обработке заявки", 'error', 'request_network_error_' + id);
+            }
+        })
+        .always(function() {
+            hideScreenLoader();
+        });
     }
 
     // =========================================================================
