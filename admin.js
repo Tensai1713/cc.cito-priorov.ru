@@ -39,11 +39,15 @@ $(document).ready(function() {
     let currentRequests = [];
     let currentRequestId = null;
     let lastRequestCount = 0;
+    let isFirstPoll = true;
     let searchTimer;
     let resizeTimer;
     let hasUnsavedChanges = false;
     const undoStore = {};
-    let isFirstPoll = true;
+    
+    // Переменные для умного лоадера
+    let loaderTimeout = null;
+    let loaderVisible = false;
 
     // =========================================================================
     // 3. ЗАЩИТА ОТ ПОТЕРИ ДАННЫХ
@@ -58,18 +62,34 @@ $(document).ready(function() {
         }
     });
 
+    // =========================================================================
+    // 4. УМНЫЙ SCREEN LOADER (Появляется только если запрос > 1 сек)
+    // =========================================================================
+    function showScreenLoader() { $('#screenLoader').addClass('active'); }
+    function hideScreenLoader() { $('#screenLoader').removeClass('active'); }
 
-    // ==================== SCREEN LOADER ====================
-function showScreenLoader() {
-    $('#screenLoader').addClass('active');
-}
+    function showLoaderWithDelay() {
+        if (loaderVisible) return;
+        loaderTimeout = setTimeout(() => {
+            showScreenLoader();
+            loaderVisible = true;
+        }, 1000);
+    }
 
-function hideScreenLoader() {
-    $('#screenLoader').removeClass('active');
-}
+    function hideLoaderWithDelay() {
+        if (loaderTimeout) { clearTimeout(loaderTimeout); loaderTimeout = null; }
+        if (loaderVisible) { hideScreenLoader(); loaderVisible = false; }
+    }
+
+    function ajaxWithLoader(settings) {
+        showLoaderWithDelay();
+        const jqXHR = $.ajax(settings);
+        jqXHR.always(function() { hideLoaderWithDelay(); });
+        return jqXHR;
+    }
 
     // =========================================================================
-    // 4. УТИЛИТЫ И УВЕДОМЛЕНИЯ
+    // 5. УТИЛИТЫ И УВЕДОМЛЕНИЯ
     // =========================================================================
     function escapeHtml(text) {
         if (text === null || text === undefined) return '';
@@ -98,7 +118,7 @@ function hideScreenLoader() {
     }
 
     // =========================================================================
-    // 5. UI ТАБЛИЦЫ
+    // 6. UI ТАБЛИЦЫ
     // =========================================================================
     function refreshTableUI() {
         $('.table-row:not(.editing) .edit-field[placeholder]').each(function() {
@@ -144,31 +164,21 @@ function hideScreenLoader() {
     });
 
     // =========================================================================
-    // 6. РАБОТА С ЗАЯВКАМИ
+    // 7. РАБОТА С ЗАЯВКАМИ
     // =========================================================================
     function loadPendingRequests() {
-        $.ajax({ 
-            type: "GET", 
-            url: "get_pending_requests.php", 
-            dataType: 'json', 
-            success: function(response) {
-                if (response.success) {
-                    const newCount = response.count || 0;
-                    currentRequests = response.requests || [];
-                    
-                    // Показываем уведомление ТОЛЬКО если это не первый опрос И количество заявок увеличилось
-                    if (!isFirstPoll && newCount > lastRequestCount) {
-                        showToast('Поступила новая заявка!', 'info', 'new_req_' + Date.now());
-                    }
-                    
-                    lastRequestCount = newCount;
-                    updateMessageUI(newCount);
-                    
-                    // После первого успешного опроса сбрасываем флаг
-                    isFirstPoll = false;
+        $.ajax({ type: "GET", url: "get_pending_requests.php", dataType: 'json', success: function(response) {
+            if (response.success) {
+                const newCount = response.count || 0;
+                currentRequests = response.requests || [];
+                if (!isFirstPoll && newCount > lastRequestCount) {
+                    showToast('Поступила новая заявка!', 'info', 'new_req_' + Date.now());
                 }
+                lastRequestCount = newCount;
+                updateMessageUI(newCount);
+                isFirstPoll = false;
             }
-        });
+        }});
     }
 
     function updateMessageUI(count) {
@@ -183,7 +193,6 @@ function hideScreenLoader() {
             $('#messageCard').removeClass('pulse');
         }
     }
-
 
     function renderRequestsList() {
         const $list = $('#requestsList').empty();
@@ -209,10 +218,7 @@ function hideScreenLoader() {
         }
     }
 
-    $('#messageCard').click(function() {
-        renderRequestsList();
-        $('#requestsListModal').fadeIn(200);
-    });
+    $('#messageCard').click(function() { renderRequestsList(); $('#requestsListModal').fadeIn(200); });
 
     function openRequestDetail(id) {
         $.ajax({ type: "GET", url: "get_request_details.php", data: { id: id }, dataType: 'json', success: function(response) {
@@ -243,69 +249,41 @@ function hideScreenLoader() {
     $('#approveBtn').click(() => currentRequestId && processRequest(currentRequestId, 'approve'));
     $('#rejectBtn').click(() => currentRequestId && processRequest(currentRequestId, 'reject'));
 
- function processRequest(id, action) {
-        showScreenLoader();
-        
-        $.ajax({
-            type: "POST",
-            url: "process_request.php",
-            data: { id: id, action: action },
-            dataType: 'json'
-        })
-        .done(function(response) {
-            hideScreenLoader();
-            
+    function processRequest(id, action) {
+        ajaxWithLoader({
+            type: "POST", url: "process_request.php", data: { id: id, action: action }, dataType: 'json'
+        }).done(function(response) {
             if (response && response.success) {
                 showToast(response.message, action === 'approve' ? 'success' : 'warning', 'request_' + action + '_' + id);
-                
-                // 1. Мгновенно убираем обработанную заявку из локального массива
                 currentRequests = currentRequests.filter(req => req.id !== id);
                 const remainingCount = currentRequests.length;
-                
-                // 2. Обновляем бейдж и текст в интерфейсе
                 updateMessageUI(remainingCount);
                 
-                // 3. Умная логика управления модалками
                 if (remainingCount > 0) {
-                    // Заявки ЕСТЬ: 
-                    // Сначала обновляем содержимое списка
                     renderRequestsList();
-                    // Закрываем окно деталей
                     $('#requestDetailModal').fadeOut(200);
-                    // ГАРАНТИРОВАННО показываем окно списка (на случай, если оно скрылось)
-                    $('#requestsListModal').show(); 
+                    $('#requestsListModal').show();
                 } else {
-                    // Заявок НЕТ:
-                    // Закрываем всё полностью
                     $('#requestDetailModal').fadeOut(200);
                     $('#requestsListModal').fadeOut(200);
                 }
-                
-                // 4. Фоновое обновление данных с сервера для полной синхронизации
                 loadPendingRequests();
                 updateTableIfVisible();
-                
             } else {
-                const errorMsg = (response && response.message) ? response.message : "Неизвестная ошибка при обработке";
-                showToast(errorMsg, 'error', 'request_error_' + id);
+                showToast((response && response.message) ? response.message : "Неизвестная ошибка при обработке", 'error', 'request_error_' + id);
             }
-        })
-        .fail(function(xhr) {
-            hideScreenLoader();
+        }).fail(function(xhr) {
             if (xhr.status === 403) {
                 showToast("Сессия обновляется. Повторите действие.", 'warning');
                 setTimeout(() => location.reload(), 1500);
             } else {
                 showToast("Ошибка сети или сервера при обработке заявки", 'error', 'request_network_error_' + id);
             }
-        })
-        .always(function() {
-            hideScreenLoader();
         });
     }
 
     // =========================================================================
-    // 7. ЗАГРУЗКА И ПОИСК В ТАБЛИЦАХ
+    // 8. ЗАГРУЗКА И ПОИСК В ТАБЛИЦАХ
     // =========================================================================
     function updateTableIfVisible() {
         if ($('.choice').is(':visible')) return;
@@ -323,54 +301,27 @@ function hideScreenLoader() {
         if (loader.length) { loader.addClass('fade-out'); setTimeout(finish, 300); } else { finish(); }
     }
 
-function performSearch() {
-    showScreenLoader();
-    $.ajax({
-        type: "GET",
-        url: "search_records.php",
-        cache: false,
-        data: {
-            search: $('#searchInput').val().trim(),
-            inspection: $('#inspectionFilter').is(':checked'),
-            yearRecord: $('#yearRecordFilter').is(':checked'),
-            dateFilter: $('#dateFilter').val()
-        },
-        success: function(response) {
-            hideScreenLoader();
-            hideTableLoader(() => {
-                $("#results").html(response);
-                $('#results .my-table').addClass('table-loaded');
-            });
-        },
-        error: () => {
-            hideScreenLoader();
+    function performSearch() {
+        ajaxWithLoader({
+            type: "GET", url: "search_records.php", cache: false,
+            data: { search: $('#searchInput').val().trim(), inspection: $('#inspectionFilter').is(':checked'), yearRecord: $('#yearRecordFilter').is(':checked'), dateFilter: $('#dateFilter').val() }
+        }).done(function(response) {
+            hideTableLoader(() => { $("#results").html(response); $('#results .my-table').addClass('table-loaded'); });
+        }).fail(function() {
             hideTableLoader(() => $("#results").html('<div class="empty-message">Ошибка при загрузке данных</div>'));
-        }
-    });
-}
+        });
+    }
 
-function loadLastRecords() {
-    showScreenLoader();
-    $.ajax({
-        type: "GET",
-        url: "get_last_records.php",
-        cache: false,
-        success: function(response) {
-            hideScreenLoader();
-            hideTableLoader(() => {
-                $("#results").html(response);
-                $('#results .my-table').addClass('table-loaded');
-            });
-        },
-        error: () => {
-            hideScreenLoader();
+    function loadLastRecords() {
+        ajaxWithLoader({ type: "GET", url: "get_last_records.php", cache: false }).done(function(response) {
+            hideTableLoader(() => { $("#results").html(response); $('#results .my-table').addClass('table-loaded'); });
+        }).fail(function() {
             hideTableLoader(() => $("#results").html('<div class="empty-message">Ошибка при загрузке данных</div>'));
-        }
-    });
-}
+        });
+    }
 
     // =========================================================================
-    // 8. АВТОКОМПЛИТ МАРКИ
+    // 9. АВТОКОМПЛИТ МАРКИ
     // =========================================================================
     function initBrandAutocomplete($input) {
         const $wrapper = $input.closest('.autocomplete-wrapper');
@@ -409,17 +360,73 @@ function loadLastRecords() {
     $('input[name="carMake"]').each(function() { $(this).wrap('<div class="autocomplete-wrapper"></div>'); initBrandAutocomplete($(this)); });
 
     // =========================================================================
-    // 9. ДОБАВЛЕНИЕ НОВОЙ ЗАПИСИ
+    // 10. ДОБАВЛЕНИЕ НОВОЙ ЗАПИСИ (ПУЛЕПРОБИВАЕМАЯ ЛОГИКА ЧЕКБОКСОВ)
     // =========================================================================
+    
+    // 1. Сбрасываем галочки ПРИ ОТКРЫТИИ формы (борьба с автозаполнением браузера)
+    $('#entryBtn').click(function() { 
+        $('.choice, .new-entry').hide(); 
+        $('.new-entry:not(.search)').show(); 
+        $('#newEntryBtnBack').show(); 
+        $("input[name='inspection'], input[name='yearRecord']").prop('checked', false);
+        loadLastRecords(); 
+    });
+
+    // 2. Сбрасываем галочки ПРИ ОЧИСТКЕ формы
+    $("#clearFormBtn").click(function() {
+        $("#carForm")[0].reset(); 
+        $('.field-error').removeClass('visible'); 
+        $('.required-field').removeClass('field-error-active');
+        $("input[name='inspection'], input[name='yearRecord']").prop('checked', false);
+        showToast("Форма очищена", 'info', 'form_cleared_' + Date.now()); 
+        hasUnsavedChanges = false; 
+    });
+
+    // 3. Отправка формы
     $("#carForm").submit(function(event) {
         event.preventDefault();
-        const fullNameApplicant = $("input[name='fullNameApplicant']").val().trim();
-        if (!fullNameApplicant) { showFieldError($('#fullNameApplicant'), $('#fullNameError')); showToast("Пожалуйста, укажите ФИО инициатора!", 'warning'); return; }
-        if (!$("input[name='carMake']").val().trim() && !$("input[name='stateNumber']").val().trim() && !$("input[name='driverLastName']").val().trim() && !$("input[name='entryDate']").val() && !$("input[name='outDate']").val() && !$("textarea[name='comment']").val().trim()) {
-            showToast("Пожалуйста, заполните хотя бы одно дополнительное поле!", 'warning'); return;
+        const fullNameApplicant = ($("input[name='fullNameApplicant']").val() || '').trim();
+        const carMake = ($("input[name='carMake']").val() || '').trim();
+        const stateNumberMain = ($("input[name='stateNumberMain']").val() || '').trim();
+        const stateRegion = ($("input[name='stateRegion']").val() || '').trim();
+        const driverLastName = ($("input[name='driverLastName']").val() || '').trim();
+        const entryDate = ($("input[name='entryDate']").val() || '').trim();
+        const outDate = ($("input[name='outDate']").val() || '').trim();
+        const comment = ($("textarea[name='comment']").val() || '').trim();
+        
+        const finalStateNumber = stateRegion ? `${stateNumberMain} ${stateRegion}`.trim() : stateNumberMain;
+
+        clearFieldError($('#fullNameApplicant'));
+        if (!fullNameApplicant) {
+            showFieldError($('#fullNameApplicant'), $('#fullNameError'));
+            showToast("Пожалуйста, укажите ФИО инициатора!", 'warning');
+            $("input[name='fullNameApplicant']").focus();
+            return;
         }
-        pendingSubmitData = $(this).serialize();
-        pendingSubmitYearRecord = $("input[name='yearRecord']").is(':checked') ? 1 : 0;
+        if (!carMake && !finalStateNumber && !driverLastName && !entryDate && !outDate && !comment) {
+            showToast("Пожалуйста, заполните хотя бы одно дополнительное поле!", 'warning');
+            return;
+        }
+
+        // ЯВНОЕ И БЕЗОПАСНОЕ ЧТЕНИЕ СОСТОЯНИЯ ЧЕКБОКСОВ
+        const isInspection = $("input[name='inspection']").is(':checked') ? 1 : 0;
+        const isYearRecord = $("input[name='yearRecord']").is(':checked') ? 1 : 0;
+
+        pendingSubmitData = {
+            carMake: carMake, 
+            stateNumber: finalStateNumber, 
+            driverLastName: driverLastName,
+            fullNameApplicant: fullNameApplicant,
+            entryTime: $("input[name='entryTime']").val() || '', 
+            outTime: $("input[name='outTime']").val() || '',
+            entryDate: entryDate, 
+            outDate: outDate, 
+            comment: comment,
+            inspection: isInspection,   // Отправит строго 0 или 1
+            yearRecord: isYearRecord    // Отправит строго 0 или 1
+        };
+        pendingSubmitYearRecord = isYearRecord;
+        
         $('#confirmSubmitText').text('Вы уверены, что хотите добавить эту запись?');
         $('#confirmSubmitOk').text('Добавить');
         $('#confirmSubmitModal').addClass('active');
@@ -432,63 +439,72 @@ function loadLastRecords() {
         if (!pendingSubmitData) return;
         const $btn = $(this);
         $btn.text('Добавление...').prop('disabled', true);
-        $.ajax({ type: "POST", url: "record.php", data: pendingSubmitData, dataType: 'json', success: function(response) {
-            $('#confirmSubmitModal').removeClass('active'); $btn.prop('disabled', false);
+        
+        ajaxWithLoader({ type: "POST", url: "record.php", data: pendingSubmitData, dataType: 'json' }).done(function(response) {
+            $('#confirmSubmitModal').removeClass('active'); 
+            $btn.prop('disabled', false);
             if (response.success) {
                 showToast(response.message, 'success', 'record_add_success_' + Date.now());
-                if (!pendingSubmitYearRecord) $("#carForm")[0].reset();
-                updateTableIfVisible(); hasUnsavedChanges = false;
-            } else { showToast(response.message, 'error', 'record_add_error_' + Date.now()); }
+                if (!pendingSubmitYearRecord) {
+                    $("#carForm")[0].reset();
+                    // Гарантированный сброс после успешной отправки
+                    $("input[name='inspection'], input[name='yearRecord']").prop('checked', false);
+                }
+                updateTableIfVisible(); 
+                hasUnsavedChanges = false;
+            } else { 
+                showToast(response.message || 'Ошибка', 'error', 'record_add_error_' + Date.now()); 
+            }
             pendingSubmitData = null;
-        }, error: function(xhr) {
-            $('#confirmSubmitModal').removeClass('active'); $btn.prop('disabled', false);
+        }).fail(function() {
+            $('#confirmSubmitModal').removeClass('active'); 
+            $btn.prop('disabled', false);
             showToast("Произошла ошибка при отправке данных.", 'error', 'record_add_error_' + Date.now());
             pendingSubmitData = null;
-        }});
+        });
     });
 
     // =========================================================================
-    // 10. РЕДАКТИРОВАНИЕ, СОХРАНЕНИЕ И ОТКАТ
+    // 11. РЕДАКТИРОВАНИЕ, СОХРАНЕНИЕ И ОТКАТ
     // =========================================================================
-   $(document).on('click', '.edit-btn', function() {
-            const $editingRow = $('.table-row.editing');
-            if ($editingRow.length > 0) {
-                showToast("Нельзя редактировать несколько записей одновременно.", 'warning', 'multi_edit_blocked_' + Date.now());
-                return;
-            }
-            const row = $(this).closest('tr');
-            const id = row.data('id');
-            
-            // Сохраняем данные до редактирования
-            undoStore[id] = {
-                car_make: row.find('input[data-field="car_make"]').val(),
-                state_number_main: row.find('input[data-field="state_number_main"]').val(),
-                state_number_region: row.find('input[data-field="state_number_region"]').val(),
-                driver_last_name: row.find('input[data-field="driver_last_name"]').val(),
-                full_name_applicant: row.find('input[data-field="full_name_applicant"]').val(),
-                entry_time: row.find('input[data-field="entry_time"]').val(),
-                out_time: row.find('input[data-field="out_time"]').val(),
-                entry_date: row.find('input[data-field="entry_date"]').val(),
-                out_date: row.find('input[data-field="out_date"]').val(),
-                comment: row.find('textarea[data-field="comment"]').val(),
-                inspection: row.find('input[data-field="inspection"]').is(':checked'),
-                year_record: row.find('input[data-field="year_record"]').is(':checked')
-            };
-            
-            row.addClass('editing');
-            row.find('.edit-field, .table-check').prop('disabled', false);
-            row.find('input[data-type="plate-normalize"]').trigger('input');
-            
-            const $carInput = row.find('input[data-field="car_make"]');
-            if (!$carInput.closest('.autocomplete-wrapper').length) {
-                $carInput.wrap('<div class="autocomplete-wrapper"></div>');
-                initBrandAutocomplete($carInput);
-            }
-            $(this).hide();
-            row.find('.save-btn').show();
-            hasUnsavedChanges = true;
-            $('.undo-btn').hide().removeClass('show');
-        });
+    $(document).on('click', '.edit-btn', function() {
+        const $editingRow = $('.table-row.editing');
+        if ($editingRow.length > 0) {
+            showToast("Нельзя редактировать несколько записей одновременно.", 'warning', 'multi_edit_blocked_' + Date.now());
+            return;
+        }
+        const row = $(this).closest('tr');
+        const id = row.data('id');
+        
+        undoStore[id] = {
+            car_make: row.find('input[data-field="car_make"]').val(),
+            state_number_main: row.find('input[data-field="state_number_main"]').val(),
+            state_number_region: row.find('input[data-field="state_number_region"]').val(),
+            driver_last_name: row.find('input[data-field="driver_last_name"]').val(),
+            full_name_applicant: row.find('input[data-field="full_name_applicant"]').val(),
+            entry_time: row.find('input[data-field="entry_time"]').val(),
+            out_time: row.find('input[data-field="out_time"]').val(),
+            entry_date: row.find('input[data-field="entry_date"]').val(),
+            out_date: row.find('input[data-field="out_date"]').val(),
+            comment: row.find('textarea[data-field="comment"]').val(),
+            inspection: row.find('input[data-field="inspection"]').is(':checked'),
+            year_record: row.find('input[data-field="year_record"]').is(':checked')
+        };
+        
+        row.addClass('editing');
+        row.find('.edit-field, .table-check').prop('disabled', false);
+        row.find('input[data-type="plate-normalize"]').trigger('input');
+        
+        const $carInput = row.find('input[data-field="car_make"]');
+        if (!$carInput.closest('.autocomplete-wrapper').length) {
+            $carInput.wrap('<div class="autocomplete-wrapper"></div>');
+            initBrandAutocomplete($carInput);
+        }
+        $(this).hide();
+        row.find('.save-btn').show();
+        hasUnsavedChanges = true;
+        $('.undo-btn').hide().removeClass('show');
+    });
 
     function updateRowColors(row, inspection) {
         if (inspection == 1) row.css({ 'background-color': 'rgba(255, 204, 0, 0.15)', 'border-left': '4px solid #ffcc00' });
@@ -501,169 +517,121 @@ function loadLastRecords() {
         });
     }
 
-$(document).on('click', '.save-btn', async function() {
-    const row = $(this).closest('tr');
-    const id = row.data('id');
-    const previousData = undoStore[id];
-    
-    const stateMain = row.find('input[data-field="state_number_main"]').val().trim();
-    const stateRegion = row.find('input[data-field="state_number_region"]').val().trim();
-    const finalStateNumber = stateRegion ? `${stateMain} ${stateRegion}` : stateMain;
+    $(document).on('click', '.save-btn', async function() {
+        const row = $(this).closest('tr');
+        const id = row.data('id');
+        
+        const stateMain = row.find('input[data-field="state_number_main"]').val().trim();
+        const stateRegion = row.find('input[data-field="state_number_region"]').val().trim();
+        const finalStateNumber = stateRegion ? `${stateMain} ${stateRegion}` : stateMain;
 
-    const data = {
-        id: id,
-        car_make: row.find('input[data-field="car_make"]').val().trim(),
-        state_number: finalStateNumber,
-        driver_last_name: row.find('input[data-field="driver_last_name"]').val().trim(),
-        full_name_applicant: row.find('input[data-field="full_name_applicant"]').val().trim(),
-        entry_time: row.find('input[data-field="entry_time"]').val(),
-        out_time: row.find('input[data-field="out_time"]').val(),
-        entry_date: row.find('input[data-field="entry_date"]').val(),
-        out_date: row.find('input[data-field="out_date"]').val(),
-        comment: row.find('textarea[data-field="comment"]').val().trim(),
-        inspection: row.find('input[data-field="inspection"]').is(':checked') ? 1 : 0,
-        year_record: row.find('input[data-field="year_record"]').is(':checked') ? 1 : 0
-    };
+        const data = {
+            id: id,
+            car_make: row.find('input[data-field="car_make"]').val().trim(),
+            state_number: finalStateNumber,
+            driver_last_name: row.find('input[data-field="driver_last_name"]').val().trim(),
+            full_name_applicant: row.find('input[data-field="full_name_applicant"]').val().trim(),
+            entry_time: row.find('input[data-field="entry_time"]').val(),
+            out_time: row.find('input[data-field="out_time"]').val(),
+            entry_date: row.find('input[data-field="entry_date"]').val(),
+            out_date: row.find('input[data-field="out_date"]').val(),
+            comment: row.find('textarea[data-field="comment"]').val().trim(),
+            inspection: row.find('input[data-field="inspection"]').is(':checked') ? 1 : 0,
+            year_record: row.find('input[data-field="year_record"]').is(':checked') ? 1 : 0
+        };
 
-    if (!data.car_make && !data.state_number && !data.driver_last_name && 
-        !data.full_name_applicant && !data.comment && !data.entry_date && !data.out_date) {
-        showToast("Пожалуйста, заполните хотя бы одно поле!", 'warning', 'validation_save_' + Date.now());
-        return; 
-    }
-
-    showScreenLoader(); // ← ДОБАВИТЬ
-
-    try {
-        const response = await $.ajax({
-            type: "POST",
-            url: "update_record.php",
-            data: data,
-            dataType: 'json'
-        });
-
-        hideScreenLoader(); // ← ДОБАВИТЬ
-
-        if (response && response.success) {
-            showToast("Данные успешно обновлены!", 'success', 'record_update_' + id + '_' + Date.now());
-            
-            row.removeClass('editing');
-            row.find('.edit-field, .table-check').prop('disabled', true);
-            row.find('.edit-btn').show();
-            row.find('.save-btn').hide();
-
-            hideEmptyDateMasks();
-            updateRowColors(row, data.inspection);
-            hasUnsavedChanges = false;
-            
-            updateTableIfVisible();
-            
-            setTimeout(() => {
-                $('.undo-btn').hide().removeClass('show');
-                const $newRow = $(`tr[data-id="${id}"]`);
-                if ($newRow.length > 0 && undoStore[id]) {
-                    const $undoBtn = $newRow.find('.undo-btn');
-                    $undoBtn.attr('data-undo-id', id);
-                    $undoBtn.show().addClass('show');
-                }
-            }, 600);
-        } else {
-            const errorMsg = (response && response.message) ? response.message : "Ошибка при обновлении данных.";
-            showToast(errorMsg, 'error', 'record_update_error_' + id + '_' + Date.now());
+        if (!data.car_make && !data.state_number && !data.driver_last_name && 
+            !data.full_name_applicant && !data.comment && !data.entry_date && !data.out_date) {
+            showToast("Пожалуйста, заполните хотя бы одно поле!", 'warning', 'validation_save_' + Date.now());
+            return; 
         }
-    } catch (error) {
-        hideScreenLoader(); // ← ДОБАВИТЬ
-        showToast("Ошибка при обновлении данных.", 'error', 'record_update_error_' + id + '_' + Date.now());
-    }
-});
 
-$(document).on('click', '.undo-btn', async function() {
-    const $undoBtn = $(this);
-    const $row = $undoBtn.closest('tr');
-    const id = parseInt($undoBtn.attr('data-undo-id')) || $row.data('id');
-    const previousData = undoStore[id];
-    
-    if (!previousData) {
-        showToast("Нет данных для отката", 'error', 'undo_no_data_' + Date.now());
-        return;
-    }
-    
-    showScreenLoader(); // ← ДОБАВИТЬ
-    
-    try {
-        const response = await $.ajax({
-            type: "POST",
-            url: "undo_record.php",
-            data: {
-                id: id,
-                previousData: JSON.stringify(previousData)
-            },
-            dataType: 'json',
-            cache: false
-        });
-        
-        hideScreenLoader(); // ← ДОБАВИТЬ
-        
-        if (response && response.success) {
-            showToast("Данные восстановлены", 'success', 'undo_success_' + Date.now());
-            delete undoStore[id];
-            $undoBtn.hide().removeClass('show');
-            
-            setTimeout(() => {
+        ajaxWithLoader({
+            type: "POST", url: "update_record.php", data: data, dataType: 'json'
+        }).done(function(response) {
+            if (response && response.success) {
+                showToast("Данные успешно обновлены!", 'success', 'record_update_' + id + '_' + Date.now());
+                row.removeClass('editing');
+                row.find('.edit-field, .table-check').prop('disabled', true);
+                row.find('.edit-btn').show();
+                row.find('.save-btn').hide();
+                hideEmptyDateMasks();
+                updateRowColors(row, data.inspection);
+                hasUnsavedChanges = false;
                 updateTableIfVisible();
-            }, 500);
-        } else {
-            showToast((response && response.message) ? response.message : "Ошибка при откате", 'error', 'undo_error_' + Date.now());
-        }
-    } catch (error) {
-        hideScreenLoader(); // ← ДОБАВИТЬ
-        showToast("Ошибка сети при откате", 'error', 'undo_network_error_' + Date.now());
-    }
-});
-
-        $(document).on('click', '.delete-btn', function() {
-            deleteId = $(this).data('id');
-            $('#confirmModal').addClass('active');
-        });
-        $('#confirmCancel').click(function() { $('#confirmModal').removeClass('active'); deleteId = null; });
-        $('#confirmOk').click(function() {
-            if (!deleteId) return;
-            
-            showScreenLoader(); // ← ДОБАВИТЬ
-            
-            $.ajax({
-                type: "POST",
-                url: "delete_record.php",
-                data: { id: deleteId },
-                dataType: 'json',
-                success: function(response) {
-                    hideScreenLoader(); // ← ДОБАВИТЬ
-                    showToast(response.message, response.success ? 'success' : 'error', 'record_delete_' + deleteId);
-                    $('#confirmModal').removeClass('active');
-                    updateTableIfVisible();
-                    deleteId = null;
+                
+                setTimeout(() => {
                     $('.undo-btn').hide().removeClass('show');
-                },
-                error: function() {
-                    hideScreenLoader(); // ← ДОБАВИТЬ
-                    showToast("Произошла ошибка при удалении записи.", 'error', 'record_delete_error_' + deleteId);
-                }
-            });
+                    const $newRow = $(`tr[data-id="${id}"]`);
+                    if ($newRow.length > 0 && undoStore[id]) {
+                        $newRow.find('.undo-btn').attr('data-undo-id', id).show().addClass('show');
+                    }
+                }, 600);
+            } else {
+                showToast((response && response.message) ? response.message : "Ошибка при обновлении данных.", 'error', 'record_update_error_' + id + '_' + Date.now());
+            }
+        }).fail(function() {
+            showToast("Ошибка сети при обновлении данных.", 'error', 'record_update_error_' + id + '_' + Date.now());
         });
+    });
+
+    $(document).on('click', '.undo-btn', async function() {
+        const $undoBtn = $(this);
+        const $row = $undoBtn.closest('tr');
+        const id = parseInt($undoBtn.attr('data-undo-id')) || $row.data('id');
+        const previousData = undoStore[id];
+        
+        if (!previousData) {
+            showToast("Нет данных для отката", 'error', 'undo_no_data_' + Date.now());
+            return;
+        }
+        
+        ajaxWithLoader({
+            type: "POST", url: "undo_record.php", data: { id: id, previousData: JSON.stringify(previousData) }, dataType: 'json', cache: false
+        }).done(function(response) {
+            if (response && response.success) {
+                showToast("Данные восстановлены", 'success', 'undo_success_' + Date.now());
+                delete undoStore[id];
+                $undoBtn.hide().removeClass('show');
+                setTimeout(() => { updateTableIfVisible(); }, 500);
+            } else {
+                showToast((response && response.message) ? response.message : "Ошибка при откате", 'error', 'undo_error_' + Date.now());
+            }
+        }).fail(function() {
+            showToast("Ошибка сети при откате", 'error', 'undo_network_error_' + Date.now());
+        });
+    });
+
+    $(document).on('click', '.delete-btn', function() {
+        deleteId = $(this).data('id');
+        $('#confirmModal').addClass('active');
+    });
+    
+    $('#confirmCancel').click(function() { $('#confirmModal').removeClass('active'); deleteId = null; });
+    
+    $('#confirmOk').click(function() {
+        if (!deleteId) return;
+        ajaxWithLoader({
+            type: "POST", url: "delete_record.php", data: { id: deleteId }, dataType: 'json'
+        }).done(function(response) {
+            showToast(response.message, response.success ? 'success' : 'error', 'record_delete_' + deleteId);
+            $('#confirmModal').removeClass('active');
+            updateTableIfVisible();
+            deleteId = null;
+            $('.undo-btn').hide().removeClass('show');
+        }).fail(function() {
+            showToast("Произошла ошибка при удалении записи.", 'error', 'record_delete_error_' + deleteId);
+        });
+    });
 
     // =========================================================================
-    // 11. НАВИГАЦИЯ И ПОИСК
+    // 12. НАВИГАЦИЯ И ПОИСК
     // =========================================================================
-    $('#entryBtn').click(function() { $('.choice, .new-entry').hide(); $('.new-entry:not(.search)').show(); $('#newEntryBtnBack').show(); loadLastRecords(); });
     $('#searchBtn').click(function() { $('.choice, .new-entry').hide(); $('.new-entry.search').show(); $('#newEntryBtnBack').show(); performSearch(); });
     
     $('#newEntryBtnBack').click(function() {
         if (hasUnsavedChanges && !confirm('У вас есть несохранённые изменения. Вернуться назад?')) return;
         $('.new-entry').hide(); $('.choice').show(); $(this).hide(); $('#results').empty(); hasUnsavedChanges = false; 
-    });
-
-    $("#clearFormBtn").click(function() {
-        $("#carForm")[0].reset(); $('.field-error').removeClass('visible'); $('.required-field').removeClass('field-error-active');
-        showToast("Форма очищена", 'info', 'form_cleared_' + Date.now()); hasUnsavedChanges = false; 
     });
 
     $('#searchInput').on('input', function() { clearTimeout(searchTimer); searchTimer = setTimeout(performSearch, 500); });
@@ -683,7 +651,7 @@ $(document).on('click', '.undo-btn', async function() {
     });
 
     // =========================================================================
-    // 12. СОРТИРОВКА ТАБЛИЦЫ
+    // 13. СОРТИРОВКА ТАБЛИЦЫ
     // =========================================================================
     $(document).on('click', '.table-header-cell.sortable', function() {
         const $th = $(this); const $table = $th.closest('table'); const column = $th.data('sort');
@@ -729,7 +697,7 @@ $(document).on('click', '.undo-btn', async function() {
     }
 
     // =========================================================================
-    // 13. ИНИЦИАЛИЗАЦИЯ
+    // 14. ИНИЦИАЛИЗАЦИЯ
     // =========================================================================
     loadPendingRequests();
     setInterval(loadPendingRequests, 5000);

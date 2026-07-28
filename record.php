@@ -2,35 +2,37 @@
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
-define('ADMIN_AUTH', true);
-require_once __DIR__ . '/admin_auth.php';
+// 1. Запускаем сессию (ОБЯЗАТЕЛЬНО для чтения $_SESSION['auth_full_name'])
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
+// 2. Разрешаем доступ к БД для этого скрипта (обход проверки в db_connect.php)
+define('USER_ACCESS', true);
+
+// 3. Подключаем БД и хелперы (БЕЗ admin_auth.php!)
 require_once 'db_connect.php';
 require_once 'helpers.php';
 
 header('Content-Type: application/json; charset=utf-8');
 
-// === Функция получения IP (если не определена в admin_auth.php) ===
+// === Функция получения IP ===
 if (!function_exists('get_real_ip')) {
     function get_real_ip() {
         return $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
     }
 }
 
-// === Функция конвертации даты (если не определена в helpers.php) ===
+// === Функция конвертации даты ===
 if (!function_exists('convertDateForDB')) {
     function convertDateForDB($date) {
         if (empty($date)) return null;
-        
-        // Если уже в формате YYYY-MM-DD
         if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) {
             return $date;
         }
-        
-        // Если в формате DD.MM.YYYY
         if (preg_match('/^(\d{2})\.(\d{2})\.(\d{4})$/', $date, $matches)) {
             return $matches[3] . '-' . $matches[2] . '-' . $matches[1];
         }
-        
         return null;
     }
 }
@@ -42,38 +44,39 @@ if ($_SERVER["REQUEST_METHOD"] !== "POST") {
 }
 
 try {
+    // 1. Получаем данные из формы
     $car_make = trim($_POST['carMake'] ?? '');
     $state_number = trim($_POST['stateNumber'] ?? '');
     $driver_last_name = trim($_POST['driverLastName'] ?? '');
-    $full_name_applicant = trim($_POST['fullNameApplicant'] ?? '');
     $entry_time = trim($_POST['entryTime'] ?? '');
     $out_time = trim($_POST['outTime'] ?? '');
-
-    if (empty($full_name_applicant)) {
-        http_response_code(400);
-        echo json_encode(['success' => false, 'message' => 'ФИО инициатора обязательно для заполнения!']);
-        exit;
-    }
-    
-    // ✅ КОНВЕРТАЦИЯ ДАТ ИЗ DD.MM.YYYY В YYYY-MM-DD
     $entry_date_raw = trim($_POST['entryDate'] ?? '');
     $out_date_raw = trim($_POST['outDate'] ?? '');
-    $entry_date = convertDateForDB($entry_date_raw);
-    $out_date = convertDateForDB($out_date_raw);
-    
     $comment = trim($_POST['comment'] ?? '');
 
-    $inspection = isset($_POST['inspection']) ? 1 : 0;
-    $year_record = isset($_POST['yearRecord']) ? 1 : 0;
+    // 2. ФИО берем из сессии авторизованного пользователя (а не из формы!)
+    $full_name_applicant = trim($_SESSION['auth_full_name'] ?? '');
+    if (empty($full_name_applicant)) {
+        $full_name_applicant = trim($_SESSION['auth_login'] ?? 'Неизвестный пользователь');
+    }
 
+    // 3. Конвертация дат
+    $entry_date = convertDateForDB($entry_date_raw);
+    $out_date = convertDateForDB($out_date_raw);
+
+    // 4. Чекбоксы (строго в integer)
+    $inspection = (int)($_POST['inspection'] ?? 0);
+    $year_record = (int)($_POST['yearRecord'] ?? 0);
+
+    // 5. Проверка на заполненность хотя бы одного поля
     if (empty($car_make) && empty($state_number) && empty($driver_last_name) && 
-        empty($full_name_applicant) && empty($comment) && empty($entry_date_raw) && empty($out_date_raw)) {
+        empty($comment) && empty($entry_date_raw) && empty($out_date_raw)) {
         http_response_code(400);
         echo json_encode(['success' => false, 'message' => 'Пожалуйста, заполните хотя бы одно поле!']);
         exit;
     }
 
-    // Приводим пустые строки к NULL
+    // 6. Приводим пустые строки к NULL для БД
     $car_make = $car_make !== '' ? $car_make : null;
     $state_number = $state_number !== '' ? $state_number : null;
     $driver_last_name = $driver_last_name !== '' ? $driver_last_name : null;
@@ -82,6 +85,7 @@ try {
     $out_time = $out_time !== '' ? $out_time : null;
     $comment = $comment !== '' ? $comment : null;
 
+    // 7. Подготовка и выполнение запроса
     $stmt = $conn->prepare("INSERT INTO CarCheckpoint (car_make, state_number, driver_last_name, full_name_applicant, entry_time, out_time, entry_date, out_date, comment, inspection, year_record) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
     
     if (!$stmt) {
@@ -94,7 +98,7 @@ try {
         $last_id = $stmt->insert_id;
         $stmt->close();
         
-        // === ЛОГИРОВАНИЕ (опционально) ===
+        // === ЛОГИРОВАНИЕ ===
         try {
             $check_table = $conn->query("SHOW TABLES LIKE 'logs'");
             if ($check_table && $check_table->num_rows > 0) {

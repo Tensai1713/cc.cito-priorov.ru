@@ -107,7 +107,7 @@ require_once __DIR__ . '/admin_auth.php';
     </div>
 </div>
             <div class="new-entry__column grid-item3">
-                <label>Фамилия водителя</label>
+                <label>Водитель</label>
                 <input class="new-entry__input" type="text" name="driverLastName">
             </div>
             <div class="new-entry__column grid-item4">

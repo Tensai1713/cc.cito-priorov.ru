@@ -13,8 +13,286 @@ $(document).ready(function() {
         
         return token;
     }
+ const userToken = generateUserToken();
 
-    const userToken = generateUserToken();
+
+$(document).ready(function() {
+    // =========================================================================
+    // ПЕРЕМЕННЫЕ ДЛЯ ХРАНЕНИЯ ПРОВЕРЕННЫХ ДАННЫХ (Кодов в JS больше нет!)
+    // =========================================================================
+    let verifiedUserCode = '';
+    let verifiedUserFullName = '';
+    const $codeInputs = $('.code-input');
+
+    // =========================================================================
+    // 1. ПЕРЕКЛЮЧЕНИЕ МЕЖДУ ФОРМАМИ
+    // =========================================================================
+    $('#showRegisterCodeBtn').click(function(e) {
+        e.preventDefault();
+        $('.auth-form').hide();
+        $('#codeVerificationForm').fadeIn(200);
+        setTimeout(() => $codeInputs.first().focus(), 250);
+    });
+
+    $('#backToLoginFromCode').click(function() {
+        $('#codeVerificationForm').hide();
+        $('.auth-form').first().fadeIn(200); // Показываем форму входа
+        $codeInputs.val('');
+    });
+
+    $('#backToCode').click(function() {
+        $('#registrationForm').hide();
+        $('#codeVerificationForm').fadeIn(200);
+        $('#regLogin, #regPassword, #regPasswordConfirm').val('');
+        verifiedUserCode = '';
+        verifiedUserFullName = '';
+    });
+
+    // =========================================================================
+    // 2. ЛОГИКА 4-Х ИНПУТОВ ДЛЯ КОДА
+    // =========================================================================
+    $codeInputs.on('input', function() {
+        // Оставляем только цифры (динамическая проверка)
+        this.value = this.value.replace(/[^0-9]/g, '');
+        
+        if (this.value.length === 1) {
+            const nextInput = $(this).next('.code-input');
+            if (nextInput.length) {
+                nextInput.focus();
+            } else {
+                // Все 4 цифры введены, автоматически проверяем код через сервер
+                checkCodeAndProceed();
+            }
+        }
+    });
+
+    $codeInputs.on('keydown', function(e) {
+        // Обработка Backspace для возврата к предыдущему инпуту
+        if (e.key === 'Backspace' && this.value === '') {
+            const prevInput = $(this).prev('.code-input');
+            if (prevInput.length) {
+                prevInput.focus();
+                prevInput.val('');
+            }
+        }
+    });
+
+    // Обработка вставки (Paste) 4-значного кода
+    $codeInputs.on('paste', function(e) {
+        e.preventDefault();
+        const pasteData = (e.originalEvent.clipboardData || window.clipboardData).getData('text').replace(/[^0-9]/g, '').slice(0, 4);
+        
+        if (pasteData.length === 4) {
+            $codeInputs.each(function(index) {
+                $(this).val(pasteData[index]);
+            });
+            checkCodeAndProceed();
+        }
+    });
+
+    // =========================================================================
+    // 3. AJAX ПРОВЕРКА КОДА НА СЕРВЕРЕ
+    // =========================================================================
+    function checkCodeAndProceed() {
+        let code = '';
+        $codeInputs.each(function() {
+            code += $(this).val();
+        });
+
+        if (code.length !== 4) return;
+
+        const csrfToken = $('meta[name="csrf-token"]').attr('content');
+        
+        // Блокируем инпуты на время запроса, чтобы пользователь не мог их менять
+        $codeInputs.prop('disabled', true);
+
+        $.ajax({
+            type: "POST",
+            url: "verify_code.php",
+            data: { 
+                code: code,
+                csrf_token: csrfToken
+            },
+            dataType: 'json',
+            beforeSend: function(xhr) {
+                xhr.setRequestHeader('X-CSRF-TOKEN', csrfToken);
+            },
+            success: function(response) {
+                $codeInputs.prop('disabled', false);
+                
+                if (response.success) {
+                    verifiedUserCode = code;
+                    verifiedUserFullName = response.full_name || 'Сотрудник';
+                    showToast(`Код принят. Добро пожаловать в систему`, 'success');
+                    
+                    setTimeout(() => {
+                        $('#codeVerificationForm').hide();
+                        $('#registrationForm').fadeIn(200);
+                        $('#regLogin').focus();
+                        $codeInputs.val(''); // Сброс для безопасности
+                    }, 800);
+                } else {
+                    handleCodeError(response.message || 'Неверный код идентификации');
+                }
+            },
+            error: function(xhr) {
+                $codeInputs.prop('disabled', false);
+                let errorMsg = "Ошибка сети при проверке кода";
+                if (xhr.status === 403) errorMsg = "Ошибка безопасности. Обновите страницу.";
+                else if (xhr.responseJSON && xhr.responseJSON.message) errorMsg = xhr.responseJSON.message;
+                
+                handleCodeError(errorMsg);
+            }
+        });
+    }
+
+    // Вспомогательная функция для обработки ошибки ввода кода
+    function handleCodeError(message) {
+        showToast(message, 'error');
+        $codeInputs.addClass('error');
+        setTimeout(() => {
+            $codeInputs.removeClass('error').val('');
+            $codeInputs.first().focus();
+        }, 1000);
+    }
+
+    // =========================================================================
+    // 4. AJAX ОТПРАВКА ФОРМЫ РЕГИСТРАЦИИ
+    // =========================================================================
+    $('#registrationForm').submit(function(e) {
+        e.preventDefault();
+        
+        const login = $('#regLogin').val().trim();
+        const password = $('#regPassword').val();
+        const passwordConfirm = $('#regPasswordConfirm').val();
+        const csrfToken = $('meta[name="csrf-token"]').attr('content');
+        
+        // Клиентская валидация
+        if (login.length < 3) {
+            showToast('Логин должен быть не менее 3 символов', 'warning');
+            return;
+        }
+        if (password.length !== 8) {
+            showToast('Пароль должен состоять ровно из 8 символов', 'warning');
+            return;
+        }
+        if (password !== passwordConfirm) {
+            showToast('Пароли не совпадают', 'warning');
+            return;
+        }
+
+        const $btn = $('#submitRegBtn');
+        const originalText = $btn.text();
+        $btn.text('Регистрация...').prop('disabled', true);
+
+        $.ajax({
+            type: "POST",
+            url: "register.php",
+            data: { 
+                login: login, 
+                password: password,
+                code: verifiedUserCode, // Отправляем проверенный код для финальной сверки на сервере
+                csrf_token: csrfToken
+            },
+            dataType: 'json',
+            beforeSend: function(xhr) {
+                xhr.setRequestHeader('X-CSRF-TOKEN', csrfToken);
+            },
+            success: function(response) {
+                $btn.text(originalText).prop('disabled', false);
+                if (response.success) {
+                    showToast(response.message, 'success');
+                    setTimeout(() => {
+                        window.location.href = './'; // Перенаправление на форму входа
+                    }, 2000);
+                } else {
+                    showToast(response.message, 'error');
+                }
+            },
+            error: function(xhr) {
+                $btn.text(originalText).prop('disabled', false);
+                let errorMsg = "Ошибка сети при регистрации";
+                if (xhr.status === 403) errorMsg = "Ошибка безопасности. Обновите страницу.";
+                else if (xhr.responseJSON && xhr.responseJSON.message) errorMsg = xhr.responseJSON.message;
+                showToast(errorMsg, 'error');
+            }
+        });
+    });
+});
+
+// ==================== НЕЗАВИСИМАЯ ПРОВЕРКА ДАТЫ И ВРЕМЕНИ ====================
+function validateDateTime(entryDate, entryTime, outDate, outTime) {
+    const errors = [];
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const nowMinutes = (now.getHours() * 60) + now.getMinutes();
+    
+    // Парсинг даты из DD.MM.YYYY
+    function parseDate(dateStr) {
+        if (!dateStr || !dateStr.trim()) return null;
+        const parts = dateStr.trim().split('.');
+        if (parts.length !== 3) return null;
+        const day = parseInt(parts[0], 10);
+        const month = parseInt(parts[1], 10) - 1;
+        const year = parseInt(parts[2], 10);
+        const date = new Date(year, month, day);
+        return isNaN(date.getTime()) ? null : date;
+    }
+    
+    // Парсинг времени из HH:MM в минуты от начала дня
+    function parseTime(timeStr) {
+        if (!timeStr || !timeStr.trim()) return null;
+        const parts = timeStr.trim().split(':');
+        if (parts.length !== 2) return null;
+        const hours = parseInt(parts[0], 10);
+        const minutes = parseInt(parts[1], 10);
+        return (hours * 60) + minutes;
+    }
+    
+    const eDate = parseDate(entryDate);
+    const oDate = parseDate(outDate);
+    const eTime = parseTime(entryTime);
+    const oTime = parseTime(outTime);
+    
+    // 1. Дата въезда не может быть в прошлом
+    if (eDate && eDate < todayStart) {
+        errors.push('Проверьте дату въезда');
+    }
+    
+    // 2. Время въезда не может быть в прошлом (НЕЗАВИСИМАЯ ПРОВЕРКА)
+    // Если дата указана и это сегодня, ИЛИ если дата НЕ указана (считаем, что это сегодня)
+    if (eTime !== null) {
+        const isEntryToday = eDate ? (eDate.getTime() === todayStart.getTime()) : true;
+        if (isEntryToday && eTime < nowMinutes) {
+            errors.push('Проверьте время въезда');
+        }
+    }
+    
+    // 3. Дата выезда не может быть раньше даты въезда
+    if (eDate && oDate && oDate < eDate) {
+        errors.push('Проверьте дату выезда');
+    }
+    
+    // 4. Время выезда не может быть в прошлом (НЕЗАВИСИМАЯ ПРОВЕРКА)
+    if (oTime !== null) {
+        const isOutToday = oDate ? (oDate.getTime() === todayStart.getTime()) : true;
+        if (isOutToday && oTime < nowMinutes) {
+            errors.push('Проверьте время выезда');
+        }
+    }
+    
+    // 5. Если даты совпадают (или обе не указаны), время выезда должно быть строго позже времени въезда
+    const isSameDay = (eDate && oDate && eDate.getTime() === oDate.getTime()) || (!eDate && !oDate);
+    if (isSameDay && eTime !== null && oTime !== null) {
+        if (oTime <= eTime) {
+            errors.push('Проверьте время выезда');
+        }
+    }
+    
+    return errors;
+}
+
+   
 
     // ======================== АВТОКОМПЛИТ МАРКИ ========================
     function initBrandAutocomplete($input) {
@@ -282,53 +560,49 @@ $(document).on('blur', 'input[data-type="date-mask"]', function() {
     // ======================== ОБРАБОТЧИК ФОРМЫ ========================
     $("#carForm").submit(function(event) {
         event.preventDefault();
+        
+        const carMake = ($("input[name='carMake']").val() || '').trim();
+        const stateNumberMain = ($("input[name='stateNumberMain']").val() || '').trim();
+        const stateRegion = ($("input[name='stateRegion']").val() || '').trim();
+        const driverLastName = ($("input[name='driverLastName']").val() || '').trim();
+        const entryDate = ($("input[name='entryDate']").val() || '').trim();
+        const outDate = ($("input[name='outDate']").val() || '').trim();
+        const comment = ($("textarea[name='comment']").val() || '').trim();
+        const entryTime = ($("input[name='entryTime']").val() || '').trim();
+        const outTime = ($("input[name='outTime']").val() || '').trim();
+        
+        const finalStateNumber = stateRegion ? `${stateNumberMain} ${stateRegion}`.trim() : stateNumberMain;
 
-        const fullNameApplicant = $("input[name='fullNameApplicant']").val();
-        const carMake = $("input[name='carMake']").val();
-        const stateNumber = $("input[name='stateNumber']").val();
-        const driverLastName = $("input[name='driverLastName']").val();
-        const entryDate = $("input[name='entryDate']").val();
-        const outDate = $("input[name='outDate']").val();
-        const comment = $("textarea[name='comment']").val();
-
-        const fullNameTrimmed = fullNameApplicant ? fullNameApplicant.trim() : '';
-        const carMakeTrimmed = carMake ? carMake.trim() : '';
-        const stateNumberTrimmed = stateNumber ? stateNumber.trim() : '';
-        const driverLastNameTrimmed = driverLastName ? driverLastName.trim() : '';
-        const commentTrimmed = comment ? comment.trim() : '';
-
-        clearFieldError($('#fullNameApplicant'));
-
-        if (!fullNameTrimmed) {
-            showFieldError($('#fullNameApplicant'), $('#fullNameError'));
-            showToast("Пожалуйста, укажите ФИО инициатора!", 'warning');
-            $("input[name='fullNameApplicant']").focus();
-            return;
-        }
-
-        if (!carMakeTrimmed && !stateNumberTrimmed && !driverLastNameTrimmed && !entryDate && !outDate && !commentTrimmed) {
+        if (!carMake && !finalStateNumber && !driverLastName && !entryDate && !outDate && !comment) {
             showToast("Пожалуйста, заполните хотя бы одно дополнительное поле!", 'warning');
             return;
         }
 
-        // Сохраняем данные
-        pendingSubmitData = {
-            user_token: userToken,
-            carMake: carMakeTrimmed,
-            stateNumber: stateNumberTrimmed,
-            driverLastName: driverLastNameTrimmed,
-            fullNameApplicant: fullNameTrimmed,
-            entryTime: $("input[name='entryTime']").val() || '',
-            outTime: $("input[name='outTime']").val() || '',
-            entryDate: entryDate || '',
-            outDate: outDate || '',
-            comment: commentTrimmed,
-            inspection: $("input[name='inspection']").is(':checked') ? 1 : 0,
-            yearRecord: $("input[name='yearRecord']").is(':checked') ? 1 : 0
-        };
+        const dateTimeErrors = validateDateTime(entryDate, entryTime, outDate, outTime);
+        if (dateTimeErrors.length > 0) {
+            showToast(dateTimeErrors[0], 'warning', 'datetime_validation_' + Date.now());
+            return;
+        }
 
-        // Показываем модалку подтверждения
-        $('#confirmSubmitText').text('Вы уверены, что хотите отправить заявку на рассмотрение?');
+        // =========================================================================
+        // СБОР ДАННЫХ С user_token
+        // =========================================================================
+        pendingSubmitData = {
+            carMake: carMake,
+            stateNumber: finalStateNumber,
+            driverLastName: driverLastName,
+            entryTime: entryTime,
+            outTime: outTime,
+            entryDate: entryDate,
+            outDate: outDate,
+            comment: comment,
+            inspection: 0,
+            yearRecord: 0,
+            user_token: userToken 
+        };
+        pendingSubmitYearRecord = 0;
+        
+        $('#confirmSubmitText').text('Вы уверены, что хотите добавить эту запись?');
         $('#confirmSubmitOk').text('Отправить');
         $('#confirmSubmitModal').addClass('active');
     });
@@ -339,7 +613,7 @@ $(document).on('blur', 'input[data-type="date-mask"]', function() {
         pendingSubmitData = null;
     });
 
-    $('#confirmSubmitOk').click(function() {
+        $('#confirmSubmitOk').click(function() {
         if (!pendingSubmitData) return;
         
         const $btn = $(this);
@@ -348,7 +622,7 @@ $(document).on('blur', 'input[data-type="date-mask"]', function() {
         
         $.ajax({
             type: "POST",
-            url: "submit_request.php",  // ✅ ПРАВИЛЬНО для index
+            url: "submit_request.php", // ← ВОТ ЗДЕСЬ БЫЛО record.php
             data: pendingSubmitData,
             dataType: 'json',
             success: function(response) {
@@ -358,7 +632,17 @@ $(document).on('blur', 'input[data-type="date-mask"]', function() {
                 if (response.success) {
                     showToast(response.message, 'success', 'submit_success_' + Date.now());
                     $("#carForm")[0].reset();
-                    clearFieldError($('#fullNameApplicant'));
+                    
+                    // Обновление счетчика заявок
+                    let currentCount = parseInt($('#myRequestsCount').text() || 0);
+                    $('#myRequestsCount').text(currentCount + 1).show();
+                    
+                    setTimeout(() => {
+                        if (typeof checkUserRequests === 'function') {
+                            checkUserRequests();
+                        }
+                    }, 2000);
+                    
                 } else {
                     showToast(response.message, 'error', 'submit_error_' + Date.now());
                 }
@@ -384,12 +668,7 @@ $(document).on('blur', 'input[data-type="date-mask"]', function() {
         $('body').removeClass('modal-open');
     }
 
-    // ======================== ОЧИСТКА ОШИБОК ПРИ ВВОДЕ ========================
-    $("#fullNameApplicant").on('input', function() {
-        if ($(this).val().trim()) {
-            clearFieldError($(this));
-        }
-    });
+
 
     // ======================== ОЧИСТКА ФОРМЫ ========================
     $("#clearFormBtn").click(function() {

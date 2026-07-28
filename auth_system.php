@@ -10,7 +10,6 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-require_once __DIR__ . '/auth_config.php';
 
 // Обработка принудительного выхода (срабатывает, когда пользователь закрыл вкладку и открыл новую)
 if (isset($_GET['force_logout'])) {

@@ -746,7 +746,6 @@ textarea.edit-field {
 
 /* ==================== МОДАЛЬНЫЕ ОКНА ==================== */
 .confirm-modal, .confirm-submit-modal {
-    display: none;
     position: fixed;
     z-index: 999999;
     left: 0;
@@ -756,12 +755,17 @@ textarea.edit-field {
     background-color: rgba(0, 0, 0, 0.7);
     overflow: auto;
     backdrop-filter: blur(5px);
+    -webkit-backdrop-filter: blur(5px);
+    
+    /* !important перебивает инлайн-стили jQuery (.fadeIn() ставит display: block) */
+    display: none;
 }
 
-.confirm-modal.active, .confirm-submit-modal.active {
-    display: flex;
-    align-items: center;
-    justify-content: center;
+.confirm-modal.active, .confirm-submit-modal.active,
+.confirm-modal[style*="display: block"], .confirm-submit-modal[style*="display: block"] {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
 }
 
 .confirm-modal-content, .confirm-submit-content {
@@ -774,6 +778,8 @@ textarea.edit-field {
     padding: 40px;
     max-width: 500px;
     width: 90%;
+    max-height: 90vh;
+    overflow-y: auto;
     animation: slideUp 0.4s ease-out;
     position: relative;
     z-index: 1;
@@ -821,8 +827,8 @@ textarea.edit-field {
 }
 
 #confirmSubmitOk {
-  background: linear-gradient(135deg, var(--success) 0%, #42c061 100%);
-  box-shadow: 0 4px 16px #42c061;
+    background: linear-gradient(135deg, var(--success) 0%, #42c061 100%);
+    box-shadow: 0 4px 16px rgba(66, 192, 97, 0.3);
 }
 
 .confirm-modal-actions .btn-confirm:hover, .confirm-submit-actions .btn-confirm:hover {
@@ -1501,7 +1507,8 @@ textarea.edit-field {
     color: var(--white);
     font-size: 16px;
     font-weight: 700;
-    min-width: 220px;
+    min-width: fit-content;
+    text-align: left;
 }
 
 .my-requests-btn:hover {
@@ -1517,7 +1524,7 @@ textarea.edit-field {
 }
 
 .my-requests-btn:hover svg { transform: scale(1.1); }
-.my-requests-btn span:not(.my-requests-count) { flex: 1; color: var(--white); }
+.my-requests-btn span:not(.my-requests-count) { flex: 1; color: var(--white); width: fit-content; }
 
 .my-requests-count {
     background: linear-gradient(135deg, var(--danger) 0%, #ff5247 100%);
@@ -1923,4 +1930,215 @@ input[type="date"], input[type="time"] { color-scheme: dark; }
     font-size: 16px;
     font-weight: 500;
     letter-spacing: 1px;
+}
+
+
+.code-input {
+    width: 55px;
+    height: 65px;
+    font-size: 28px;
+    font-weight: 700;
+    text-align: center;
+    border: 1px solid var(--glass-border);
+    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--white);
+    transition: var(--transition);
+    caret-color: var(--primary);
+}
+
+.code-input:focus {
+    outline: none;
+    background: rgba(255, 255, 255, 0.15);
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(0, 113, 227, 0.2);
+}
+
+.code-input.error {
+    border-color: var(--danger);
+    background: rgba(255, 59, 48, 0.1);
+    box-shadow: 0 0 0 3px rgba(255, 59, 48, 0.2);
+    animation: shake 0.4s ease;
+}
+
+@keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-5px); }
+    75% { transform: translateX(5px); }
+}
+
+#showRegisterCodeBtn:hover {
+    color: var(--primary-light);
+    text-decoration: underline;
+}
+
+
+/* ==================== AUTH & REGISTRATION FORMS ==================== */
+.auth-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 20px;
+}
+
+.auth-form {
+    background: var(--glass-bg);
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    border: 1px solid var(--glass-border);
+    border-radius: 28px;
+    padding: 40px;
+    max-width: 400px;
+    width: 100%;
+    box-shadow: var(--glass-shadow);
+    animation: slideUp 0.4s ease-out;
+}
+
+@keyframes slideUp {
+    from { transform: translateY(50px) scale(0.95); opacity: 0; }
+    to { transform: translateY(0) scale(1); opacity: 1; }
+}
+
+.auth-title {
+    font-size: 32px;
+    font-weight: 700;
+    margin-bottom: 20px;
+    background: linear-gradient(135deg, var(--secondary) 0%, var(--primary) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    text-align: center;
+}
+
+.auth-field { margin-bottom: 20px; }
+
+.auth-field label {
+    display: block;
+    font-weight: 600;
+    color: var(--gray-200);
+    font-size: 15px;
+    margin-bottom: 8px;
+    margin-left: 4px;
+}
+
+.auth-field input, .auth-field textarea {
+    width: 100%;
+    padding: 14px 18px;
+    font-size: 16px;
+    border: 1px solid var(--glass-border);
+    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(10px);
+    color: var(--white);
+    transition: var(--transition);
+    font-family: inherit;
+    box-sizing: border-box;
+}
+
+.auth-field input:focus, .auth-field textarea:focus {
+    outline: none;
+    background: rgba(255, 255, 255, 0.15);
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(0, 113, 227, 0.2);
+}
+
+.auth-error {
+    background: rgba(255, 59, 48, 0.15);
+    border: 1px solid rgba(255, 59, 48, 0.3);
+    color: var(--danger);
+    padding: 12px 16px;
+    border-radius: 12px;
+    margin-bottom: 20px;
+    font-size: 14px;
+    text-align: center;
+}
+
+.auth-submit {
+    width: 100%;
+    padding: 16px;
+    font-size: 16px;
+    font-weight: 600;
+    border-radius: 16px;
+    cursor: pointer;
+    transition: var(--transition);
+    font-family: inherit;
+    margin-top: 20px;
+    border: none;
+}
+
+.auth-logo {
+    display: block;
+    margin: 0 auto 24px;
+    max-width: 120px;
+    filter: drop-shadow(0 4px 6px rgba(0,0,0,0.3));
+}
+
+/* Стили для 4-х инпутов кода */
+.code-inputs-wrapper {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+}
+
+.code-input {
+    width: 55px;
+    height: 65px;
+    font-size: 28px;
+    font-weight: 700;
+    text-align: center;
+    border: 1px solid var(--glass-border);
+    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--white);
+    transition: var(--transition);
+    caret-color: var(--primary);
+}
+
+.code-input:focus {
+    outline: none;
+    background: rgba(255, 255, 255, 0.15);
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(0, 113, 227, 0.2);
+}
+
+.code-input.error {
+    border-color: var(--danger);
+    background: rgba(255, 59, 48, 0.1);
+    box-shadow: 0 0 0 3px rgba(255, 59, 48, 0.2);
+    animation: shake 0.4s ease;
+}
+
+@keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-5px); }
+    75% { transform: translateX(5px); }
+}
+
+.auth-warning-box {
+    background: rgba(255, 204, 0, 0.08);
+    border: 1px solid var(--warning);
+    border-radius: 12px;
+    padding: 12px;
+    text-align: center;
+    color: var(--warning);
+    font-size: 14px;
+    font-weight: 500;
+}
+
+#showRegisterCodeBtn {
+    color: var(--secondary);
+    font-size: 14px;
+    text-decoration: none;
+    transition: var(--transition);
+    display: block;
+    text-align: center;
+    margin-top: 20px;
+    width: fit-content;
+    justify-self: center;
+}
+
+#showRegisterCodeBtn:hover {
+    color: var(--primary-light);
+    text-decoration: underline;
 }

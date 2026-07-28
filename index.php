@@ -1,12 +1,20 @@
 <?php
+// 1. Запускаем сессию в самом начале
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 if (empty($_SESSION['csrf_token'])) {
     $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 }
-require_once __DIR__ . '/auth_system.php';
 
+// 2. ВАЖНО: Разрешаем доступ к БД для этого скрипта (иначе db_connect.php выдаст 403 "Доступ запрещён")
+define('USER_ACCESS', true);
+
+// 3. Подключаем БД для проверки логина/пароля
+require_once __DIR__ . '/db_connect.php';
+
+// 4. Подключаем систему авторизации (для функции isAuthorized и обработки logout)
+require_once __DIR__ . '/auth_system.php';
 
 $error = '';
 $is_logged_in = isAuthorized();
@@ -16,21 +24,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$is_logged_in) {
     $login = trim($_POST['login'] ?? '');
     $password = $_POST['password'] ?? '';
     
-    // Добавлена проверка на пустые поля, чтобы не тратить ресурсы и не вводить в заблуждение
-    if ($login !== '' && $password !== '' && mb_strtolower($login) === mb_strtolower(AUTH_LOGIN) && $password === AUTH_PASSWORD) {
-        $_SESSION['auth_user'] = true;
-        $_SESSION['auth_login'] = $login;
-        $_SESSION['auth_time'] = time();
-        $_SESSION['auth_last_activity'] = time();
-        $_SESSION['auth_tab_token'] = bin2hex(random_bytes(16));
+    if ($login !== '' && $password !== '') {
+        // Ищем пользователя в базе данных по логину
+        $stmt = $conn->prepare("SELECT id, login, password, full_name FROM users WHERE login = ?");
+        $stmt->bind_param("s", $login);
+        $stmt->execute();
+        $result = $stmt->get_result();
         
-        // Используем жесткий редирект на корень, это надежнее чем $_SERVER['PHP_SELF']
-        header('Location: ./?login_success=1');
-        exit;
+        if ($result && $row = $result->fetch_assoc()) {
+            // Проверяем, совпадает ли введенный пароль с хэшем в БД
+            if (password_verify($password, $row['password'])) {
+                // Успешный вход!
+                $_SESSION['auth_user'] = true;
+                $_SESSION['auth_login'] = $row['login'];
+                $_SESSION['auth_full_name'] = $row['full_name'];
+                $_SESSION['auth_time'] = time();
+                $_SESSION['auth_last_activity'] = time();
+                $_SESSION['auth_tab_token'] = bin2hex(random_bytes(16));
+                
+                header('Location: ./?login_success=1');
+                exit;
+            } else {
+                $error = 'Неверный логин или пароль';
+            }
+        } else {
+            $error = 'Неверный логин или пароль';
+        }
+        $stmt->close();
     } else {
         $error = 'Неверный логин или пароль';
     }
 }
+
 
 if (!$is_logged_in) {
 ?>
@@ -39,125 +64,22 @@ if (!$is_logged_in) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Вход</title>
+    <meta name="csrf-token" content="<?= htmlspecialchars($_SESSION['csrf_token']) ?>">
+    <meta name="is-authorized" content="false">
+    
+    <title>Вход в систему</title>
     <link rel="shortcut icon" href="img/favicon.ico" type="image/x-icon">
     <link rel="icon" href="img/favicon.ico" type="image/x-icon">
     <link rel="stylesheet" href="./style.css">
-    <style>
-        .auth-container {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            min-height: 100vh;
-            padding: 20px;
-        }
-        
-        .auth-form {
-            background: var(--glass-bg);
-            backdrop-filter: blur(20px) saturate(180%);
-            -webkit-backdrop-filter: blur(20px) saturate(180%);
-            border: 1px solid var(--glass-border);
-            border-radius: 28px;
-            padding: 40px;
-            max-width: 400px;
-            width: 100%;
-            box-shadow: var(--glass-shadow);
-            animation: slideUp 0.4s ease-out;
-        }
-        
-        @keyframes slideUp {
-            from { transform: translateY(50px) scale(0.95); opacity: 0; }
-            to { transform: translateY(0) scale(1); opacity: 1; }
-        }
-        
-        .auth-title {
-            font-size: 32px;
-            font-weight: 700;
-            margin-bottom: 20px;
-            background: linear-gradient(135deg, var(--secondary) 0%, var(--primary) 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-            text-align: center;
-        }
-        
-        .auth-subtitle {
-            font-size: 16px;
-            color: var(--gray-300);
-            text-align: center;
-            margin-bottom: 32px;
-        }
-        
-        .auth-field {
-            margin-bottom: 20px;
-        }
-        
-        .auth-field label {
-            display: block;
-            font-weight: 600;
-            color: var(--gray-200);
-            font-size: 15px;
-            margin-bottom: 8px;
-            margin-left: 4px;
-        }
-        
-        .auth-field input {
-            width: 100%;
-            padding: 14px 18px;
-            font-size: 16px;
-            border: 1px solid var(--glass-border);
-            border-radius: 16px;
-            background: rgba(255, 255, 255, 0.08);
-            backdrop-filter: blur(10px);
-            color: var(--white);
-            transition: var(--transition);
-            font-family: inherit;
-            box-sizing: border-box;
-        }
-        
-        .auth-field input:focus {
-            outline: none;
-            background: rgba(255, 255, 255, 0.15);
-            border-color: var(--primary);
-            box-shadow: 0 0 0 3px rgba(0, 113, 227, 0.2);
-        }
-        
-        .auth-error {
-            background: rgba(255, 59, 48, 0.15);
-            border: 1px solid rgba(255, 59, 48, 0.3);
-            color: var(--danger);
-            padding: 12px 16px;
-            border-radius: 12px;
-            margin-bottom: 20px;
-            font-size: 14px;
-            text-align: center;
-        }
-        
-        .auth-submit {
-            width: 100%;
-            padding: 16px;
-            font-size: 16px;
-            font-weight: 600;
-            border-radius: 16px;
-            cursor: pointer;
-            transition: var(--transition);
-            font-family: inherit;
-            margin-top: 20px;
-        }
-        
-        
-        
-        .auth-logo {
-            display: block;
-            margin: 0 auto 24px;
-            max-width: 120px;
-            filter: drop-shadow(0 4px 6px rgba(0,0,0,0.3));
-        }
-    </style>
+    
+    <script defer src="./jquery.min.js"></script>
+    <script defer src="./index.js"></script>
 </head>
 <body>
+    <div class="toast-container" id="toastContainer"></div>
+    
     <div class="auth-container">
-        <form class="auth-form" method="POST" action="">
+        <form class="auth-form" id="loginForm" method="POST" action="">
             <img class="auth-logo" src="./img/logo.png" alt="Logo">
             <h1 class="auth-title">Вход в систему</h1>
             
@@ -176,26 +98,109 @@ if (!$is_logged_in) {
             </div>
             
             <button type="submit" class="auth-submit btn">Войти</button>
+            <a href="#" id="showRegisterCodeBtn">Я хочу зарегистрироваться</a>
+        </form>
+
+        <form class="auth-form" id="codeVerificationForm" style="display: none;">
+            <img class="auth-logo" src="./img/logo.png" alt="Logo">
+            <h1 class="auth-title">Регистрация</h1>
+            
+            <div class="auth-field" style="text-align: center;">
+                <label style="margin-bottom: 15px; display: block; font-size: 16px;">Введите ваш код идентификации</label>
+                <div class="code-inputs-wrapper">
+                    <input type="text" class="code-input" maxlength="1" inputmode="numeric" pattern="[0-9]*">
+                    <input type="text" class="code-input" maxlength="1" inputmode="numeric" pattern="[0-9]*">
+                    <input type="text" class="code-input" maxlength="1" inputmode="numeric" pattern="[0-9]*">
+                    <input type="text" class="code-input" maxlength="1" inputmode="numeric" pattern="[0-9]*">
+                </div>
+            </div>
+            
+            <button type="button" class="auth-submit btn" id="backToLoginFromCode" style="background: rgba(255,255,255,0.1); margin-top: 20px;">Назад ко входу</button>
+        </form>
+
+        <form class="auth-form" id="registrationForm" style="display: none;">
+            <img class="auth-logo" src="./img/logo.png" alt="Logo">
+            <h1 class="auth-title">Создание аккаунта</h1>
+            
+            <div class="auth-field">
+                <label for="regLogin">Логин</label>
+                <input type="text" id="regLogin" name="login" required autocomplete="username">
+            </div>
+            
+            <div class="auth-field">
+                <label for="regPassword">Пароль</label>
+                <input type="password" id="regPassword" name="password" required autocomplete="new-password">
+            </div>
+            
+            <div class="auth-field">
+                <label for="regPasswordConfirm">Подтверждение пароля</label>
+                <input type="password" id="regPasswordConfirm" name="password_confirm" required autocomplete="new-password">
+            </div>
+            
+            <div class="auth-field auth-warning-box">
+              Пароль должен состоять не менее чем из 8 символов
+            </div>
+            
+            <button type="submit" class="auth-submit btn" id="submitRegBtn">Зарегистрироваться</button>
+            <button type="button" class="auth-submit btn" id="backToCode" style="background: rgba(255,255,255,0.1); margin-top: 10px;">Назад к коду</button>
         </form>
     </div>
+
+<div class="confirm-submit-modal" id="codeReuseModal" style="display: none;">
+    <div class="confirm-submit-overlay" id="codeReuseOverlay"></div>
+    <div class="confirm-submit-content">
+        <h2 class="confirm-submit-title">Внимание</h2>
+        <p class="confirm-submit-text">Ваш код идентификации уже был использован для регистрации. Вы хотите провести регистрацию заново?</p>
+        <div class="confirm-submit-actions" style="flex-direction: column; gap: 15px; align-items: center;">
+            <button class="btn btn-confirm" id="confirmReuseBtn" style="width: 100%;">Да, хочу</button>
+            <a href="#" id="showSecurityContactBtn" style="color: var(--secondary); font-size: 13px; text-decoration: underline; text-align: center; margin-top: 5px;">
+                Аккаунт никогда не регистрировался или возникли вопросы?
+            </a>
+        </div>
+    </div>
+</div>
+
+<div class="confirm-submit-modal" id="securityContactModal" style="display: none;">
+    <div class="confirm-submit-overlay" id="securityContactOverlay"></div>
+    <div class="confirm-submit-content">
+        <h2 class="confirm-submit-title">Служба безопасности</h2>
+        <p class="confirm-submit-text" style="line-height: 1.6; text-align: center;">
+            Пожалуйста, обратитесь в <strong>отдел по безопасности и противодействию коррупции к Воронину Сергею Александровичу</strong> или напишите на почту:<br><br>
+            <a href="mailto:VoroninSA@cito-priorov.ru" style="color: var(--primary); font-weight: 600; text-decoration: none; word-break: break-all;">
+                VoroninSA@cito-priorov.ru
+            </a>
+        </p>
+        <div class="confirm-submit-actions" style="margin-top: 20px;">
+            <button class="btn btn-cancel" id="closeSecurityContactBtn">Понятно</button>
+        </div>
+    </div>
+</div>         
+
 </body>
 </html>
 <?php
     exit;
 }
 ?>
+
+
 <!DOCTYPE html>
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="<?= htmlspecialchars($_SESSION['csrf_token']) ?>">
-    <title>Заявка </title>
+    <meta name="is-authorized" content="true">
+    
+    <title>Заявка</title>
     <link rel="shortcut icon" href="img/favicon.ico" type="image/x-icon">
     <link rel="icon" href="img/favicon.ico" type="image/x-icon">
     <link rel="stylesheet" href="./style.css">
+    
     <script defer src="./jquery.min.js"></script>
-    <script defer src="./script.js"></script>
+    <script defer src="./script.js"></script> <!-- Основной JS для админки/заявок -->
+    <script defer src="./index.js"></script>  <!-- JS для таймера неактивности -->
+    
     <style>
         html, body {
             overscroll-behavior: none;
@@ -203,7 +208,6 @@ if (!$is_logged_in) {
             margin: 0;
             padding: 0;
         }
-
         .form-subtitle-warning {
             display: block;
             margin-top: 10px;
@@ -211,7 +215,6 @@ if (!$is_logged_in) {
             font-size: 14px;
             font-weight: 500;
         }
-
         .form-subtitle-alert {
             border: 2px solid var(--warning, #ffcc00);
             border-radius: 12px;
@@ -226,162 +229,79 @@ if (!$is_logged_in) {
 </head>
 <body>
 
-<!-- КНОПКА ВЫХОДА -->
-<a href="?logout=1" class="logout-btn" title="Выйти">
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path d="M9 21H5C4.46957 21 3.96086 20.7893 3.58579 20.4142C3.21071 20.0391 3 19.5304 3 19V5C3 4.46957 3.21071 3.96086 3.58579 3.58579C3.96086 3.21071 4.46957 3 5 3H9M16 17L21 12M21 12L16 7M21 12H9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-    </svg>
-</a>
+    <a href="?logout=1" class="logout-btn" title="Выйти">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M9 21H5C4.46957 21 3.96086 20.7893 3.58579 20.4142C3.21071 20.0391 3 19.5304 3 19V5C3 4.46957 3.21071 3.96086 3.58579 3.58579C3.96086 3.21071 4.46957 3 5 3H9M16 17L21 12M21 12L16 7M21 12H9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+    </a>
 
-<div class="toast-container" id="toastContainer"></div>
+    <div class="toast-container" id="toastContainer"></div>
 
-<!-- КНОПКА "ВАШИ ЗАЯВКИ" -->
-<button class="my-requests-btn btn" id="myRequestsBtn" title="Ваши заявки">
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path d="M9 5H7C5.89543 5 5 5.89543 5 7V19C5 20.1046 5.89543 21 7 21H17C18.1046 21 19 20.1046 19 19V7C19 5.89543 18.1046 5 17 5H15M9 5C9 6.10457 9.89543 7 11 7H13C14.1046 7 15 6.10457 15 5M9 5C9 3.89543 9.89543 3 11 3H13C14.1046 3 15 3.89543 15 5M12 12H15M12 16H15M9 12H9.01M9 16H9.01" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-    </svg>
-    <span>Ваши заявки</span>
-    <span class="my-requests-count" id="myRequestsCount" style="display: none;">0</span>
-</button>
+    <button class="my-requests-btn btn" id="myRequestsBtn" title="Ваши заявки">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M9 5H7C5.89543 5 5 5.89543 5 7V19C5 20.1046 5.89543 21 7 21H17C18.1046 21 19 20.1046 19 19V7C19 5.89543 18.1046 5 17 5H15M9 5C9 6.10457 9.89543 7 11 7H13C14.1046 7 15 6.10457 15 5M9 5C9 3.89543 9.89543 3 11 3H13C14.1046 3 15 3.89543 15 5M12 12H15M12 16H15M9 12H9.01M9 16H9.01" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <span>Ваши заявки</span>
+        <span class="my-requests-count" id="myRequestsCount" style="display: none;">0</span>
+    </button>
 
-<!-- МОДАЛКА "ВАШИ ЗАЯВКИ" -->
-<div class="my-requests-modal" id="myRequestsModal" style="display: none;">
-    <div class="my-requests-overlay" id="myRequestsOverlay"></div>
-    <div class="my-requests-content">
-        <button class="my-requests-close" id="myRequestsClose">✕</button>
-        <h2 class="my-requests-title">📋 Ваши заявки</h2>
-        <div class="my-requests-list" id="myRequestsList">
-            <div class="my-requests-loading">Загрузка...</div>
+    <div class="my-requests-modal" id="myRequestsModal" style="display: none;">
+        <div class="my-requests-overlay" id="myRequestsOverlay"></div>
+        <div class="my-requests-content">
+            <button class="my-requests-close" id="myRequestsClose">✕</button>
+            <h2 class="my-requests-title">📋 Ваши заявки</h2>
+            <div class="my-requests-list" id="myRequestsList">
+                <div class="my-requests-loading">Загрузка...</div>
+            </div>
         </div>
     </div>
-</div>
 
-<!-- <img class="logo" src="./img/logo.png" alt=""> -->
-
-
-
-
-
-<div class="new-entry">
-    <form class="new-entry__panel" id="carForm">
-        <h2 class="form-title">Заявка</h2>
-        <p class="form-subtitle form-subtitle-alert">
-            Заполните форму для подачи заявки на рассмотрение. Уведомление о статусе отобразится в списке ваших заявок на этой странице.
-            <span class="form-subtitle-warning">⚠️ Будьте внимательны при заполнении поля «Гос/номер»</span>
-        </p>
-        <div class="new-entry__inputs">
-            <div class="new-entry__column grid-item1"><label>Марка</label><input class="new-entry__input" type="text" name="carMake"></div>
-            <div class="new-entry__column grid-item2">
-                <label>Гос/номер</label>
-                <div class="plate-input-group">
-                    <input class="plate-main" type="text" name="stateNumberMain" placeholder="А123ТВ" data-type="plate-normalize" maxlength="10">
-                    <input class="plate-region" type="text" name="stateRegion" placeholder="777" data-type="plate-normalize" maxlength="5">
+    <div class="new-entry">
+        <form class="new-entry__panel" id="carForm">
+            <h2 class="form-title">Заявка</h2>
+            <p class="form-subtitle form-subtitle-alert">
+                Заполните форму для подачи заявки на рассмотрение. Уведомление о статусе отобразится в списке ваших заявок на этой странице.
+                <span class="form-subtitle-warning">⚠️ Будьте внимательны при заполнении поля «Гос/номер»</span>
+            </p>
+            <div class="new-entry__inputs">
+                <div class="new-entry__column grid-item1"><label>Марка</label><input class="new-entry__input" type="text" name="carMake"></div>
+                <div class="new-entry__column grid-item2">
+                    <label>Гос/номер</label>
+                    <div class="plate-input-group">
+                        <input class="plate-main" type="text" name="stateNumberMain" placeholder="А123ТВ" data-type="plate-normalize" maxlength="10">
+                        <input class="plate-region" type="text" name="stateRegion" placeholder="777" data-type="plate-normalize" maxlength="5">
+                    </div>
                 </div>
+                <div class="new-entry__column grid-item3"><label>Водитель</label><input class="new-entry__input" type="text" name="driverLastName"></div>
+                <div class="new-entry__column grid-item5"><label>Время въезда</label><input class="new-entry__input" type="time" name="entryTime"></div>
+                <div class="new-entry__column grid-item6"><label>Время выезда</label><input class="new-entry__input" type="time" name="outTime"></div>
+                <div class="new-entry__column new-entry__column-comment grid-item7"><label>Комментарий</label><textarea class="new-entry__input new-entry__input-comment" name="comment"></textarea></div>
+                <div class="new-entry__column grid-item9"><label>Дата въезда</label><input class="new-entry__input" type="text" data-type="date-mask" name="entryDate" placeholder="ДД.ММ.ГГГГ" maxlength="10"></div>
+                <div class="new-entry__column grid-item10"><label>Дата выезда</label><input class="new-entry__input" type="text" data-type="date-mask" name="outDate" placeholder="ДД.ММ.ГГГГ" maxlength="10"></div>
+                <button class="btn grid-item11" type="submit">Отправить</button>
+                <button class="btn grid-item13" type="button" id="clearFormBtn">Очистить</button>
             </div>
-            <div class="new-entry__column grid-item3"><label>Фамилия водителя</label><input class="new-entry__input" type="text" name="driverLastName"></div>
-            <div class="new-entry__column grid-item4">
-                <label>ФИО инициатора <span class="required">*</span></label>
-                <input class="new-entry__input required-field" type="text" name="fullNameApplicant" id="fullNameApplicant">
-                <div class="field-error" id="fullNameError">Это поле обязательно для заполнения</div>
-            </div>
-            <div class="new-entry__column grid-item5"><label>Время въезда</label><input class="new-entry__input" type="time" name="entryTime"></div>
-            <div class="new-entry__column grid-item6"><label>Время выезда</label><input class="new-entry__input" type="time" name="outTime"></div>
-            <div class="new-entry__column new-entry__column-comment grid-item7"><label>Комментарий</label><textarea class="new-entry__input new-entry__input-comment" name="comment"></textarea></div>
-            <div class="new-entry__column grid-item8"><label>Без досмотра</label><input class="new-entry__input-checkbox" type="checkbox" name="inspection"></div>
-            <div class="new-entry__column grid-item12"><label>Годовая запись</label><input class="new-entry__input-checkbox" type="checkbox" name="yearRecord"></div>
-            <div class="new-entry__column grid-item9"><label>Дата въезда</label><input class="new-entry__input" type="text" data-type="date-mask" name="entryDate" placeholder="ДД.ММ.ГГГГ" maxlength="10"></div>
-            <div class="new-entry__column grid-item10"><label>Дата выезда</label><input class="new-entry__input" type="text" data-type="date-mask" name="outDate" placeholder="ДД.ММ.ГГГГ" maxlength="10"></div>
-            <button class="btn grid-item11" type="submit">Отправить</button>
-            <button class="btn grid-item13" type="button" id="clearFormBtn">Очистить</button>
-        </div>
-    </form>
-</div>
+        </form>
+    </div>
 
-<!-- МОДАЛКА ПОДТВЕРЖДЕНИЯ ОТПРАВКИ -->
-<div class="confirm-submit-modal" id="confirmSubmitModal">
-    <div class="confirm-submit-overlay" id="confirmSubmitOverlay"></div>
-    <div class="confirm-submit-content">
-        <h2 class="confirm-submit-title">Подтверждение</h2>
-        <p class="confirm-submit-text" id="confirmSubmitText">Вы уверены, что хотите отправить данные?</p>
-        <div class="confirm-submit-actions">
-            <button class="btn btn-cancel" id="confirmSubmitCancel">Отмена</button>
-            <button class="btn btn-confirm" id="confirmSubmitOk">Отправить</button>
+    <div class="confirm-submit-modal" id="confirmSubmitModal">
+        <div class="confirm-submit-overlay" id="confirmSubmitOverlay"></div>
+        <div class="confirm-submit-content">
+            <h2 class="confirm-submit-title">Подтверждение</h2>
+            <p class="confirm-submit-text" id="confirmSubmitText">Вы уверены, что хотите отправить данные?</p>
+            <div class="confirm-submit-actions">
+                <button class="btn btn-cancel" id="confirmSubmitCancel">Отмена</button>
+                <button class="btn btn-confirm" id="confirmSubmitOk">Отправить</button>
+            </div>
         </div>
     </div>
-</div>
 
-<div id="screenLoader" class="screen-loader">
-    <div class="screen-loader-content">
-        <div class="loading-spinner"></div>
-        <div class="loader-text">Загрузка...</div>
+    <div id="screenLoader" class="screen-loader">
+        <div class="screen-loader-content">
+            <div class="loading-spinner"></div>
+            <div class="loader-text">Загрузка...</div>
+        </div>
     </div>
-</div>
-
-<script>
-(function() {
-    const TAB_INACTIVITY_TIMEOUT = 15 * 60 * 1000; // 15 минут
-    let inactivityTimer = null;
-    let isLoggingOut = false;
-
-    const isPhpAuthorized = <?= json_encode(isAuthorized()) ?>;
-    const urlParams = new URLSearchParams(window.location.search);
-    const isFreshLogin = urlParams.has('login_success');
-
-    if (isPhpAuthorized) {
-        // Выкидываем ТОЛЬКО если это НЕ свежий вход И нет метки активной вкладки
-        if (!isFreshLogin && sessionStorage.getItem('tab_is_active') !== 'true') {
-            window.location.replace('./?force_logout=1');
-        }
-    }
-
-    sessionStorage.setItem('tab_is_active', 'true');
-
-    // Очищаем URL от флага login_success, чтобы он не светился в адресной строке
-    if (isFreshLogin) {
-        window.history.replaceState({}, document.title, window.location.pathname);
-    }
-
-    function doLogout() {
-        if (isLoggingOut) return;
-        isLoggingOut = true;
-        sessionStorage.removeItem('tab_is_active');
-        window.location.replace('./?force_logout=1');
-    }
-
-    function startInactivityTimer() {
-        if (inactivityTimer) clearTimeout(inactivityTimer);
-        inactivityTimer = setTimeout(doLogout, TAB_INACTIVITY_TIMEOUT);
-    }
-
-    function stopInactivityTimer() {
-        if (inactivityTimer) {
-            clearTimeout(inactivityTimer);
-            inactivityTimer = null;
-        }
-    }
-
-    document.addEventListener('visibilitychange', function() {
-        if (document.hidden) {
-            startInactivityTimer();
-        } else {
-            stopInactivityTimer();
-        }
-    });
-
-    function resetTimerOnActivity() {
-        if (!document.hidden) {
-            stopInactivityTimer();
-        }
-    }
-
-    ['mousedown', 'keydown', 'scroll', 'touchstart', 'click'].forEach(function(evt) {
-        document.addEventListener(evt, resetTimerOnActivity, { passive: true });
-    });
-})();
-</script>
-
-
-
 
 </body>
 </html>
