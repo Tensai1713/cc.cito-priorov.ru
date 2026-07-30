@@ -80,7 +80,7 @@ if (!$is_logged_in) {
     
     <div class="auth-container">
         <form class="auth-form" id="loginForm" method="POST" action="">
-            <img class="auth-logo" src="./img/logo.png" alt="Logo">
+            <img class="auth-logo" src="./img/short_logo.png" alt="Logo">
             <h1 class="auth-title">Вход в систему</h1>
             
             <?php if ($error): ?>

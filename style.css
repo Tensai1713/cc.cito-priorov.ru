@@ -2070,7 +2070,7 @@ input[type="date"], input[type="time"] { color-scheme: dark; }
 .auth-logo {
     display: block;
     margin: 0 auto 24px;
-    max-width: 120px;
+    max-width: 40px;
     filter: drop-shadow(0 4px 6px rgba(0,0,0,0.3));
 }
 

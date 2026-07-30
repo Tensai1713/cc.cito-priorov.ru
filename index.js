@@ -92,7 +92,7 @@ $(document).ready(function() {
                         $('#codeReuseModal').fadeIn(200);
                     } else {
                         // Код новый, идем к стандартной регистрации
-                        showToast(`Код принят. Добро пожаловать, ${verifiedUserFullName}!`, 'success');
+                        showToast(`Код принят. Добро пожаловать в систему`, 'success');
                         $('#codeVerificationForm').hide();
                         $('#registrationForm').fadeIn(200);
                         $('#regLogin').focus();
@@ -148,7 +148,7 @@ $(document).ready(function() {
                 password: password,
                 code: verifiedUserCode, 
                 csrf_token: csrfToken,
-                force_register: isForceRegister ? 1 : 0 // Отправляем флаг, если была нажата кнопка "Да, хочу"
+                force_register: isForceRegister ? 1 : 0 
             },
             dataType: 'json',
             beforeSend: function(xhr) { xhr.setRequestHeader('X-CSRF-TOKEN', csrfToken); },
