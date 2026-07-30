@@ -1,5 +1,4 @@
 $(document).ready(function() {
-
     // =========================================================================
     // 1. БЕЗОПАСНОСТЬ И СЕССИЯ (HEARTBEAT & CSRF)
     // =========================================================================
@@ -44,43 +43,22 @@ $(document).ready(function() {
     let resizeTimer;
     let hasUnsavedChanges = false;
     const undoStore = {};
-    
-    // Переменные для умного лоадера
     let loaderTimeout = null;
     let loaderVisible = false;
 
     // =========================================================================
-    // 3. ЗАЩИТА ОТ ПОТЕРИ ДАННЫХ
-    // =========================================================================
-    $(document).on('input change', '.new-entry__input, .new-entry__input-comment, .new-entry__input-checkbox', () => hasUnsavedChanges = true);
-    $(document).on('change', '.table-check', () => hasUnsavedChanges = true);
-
-    window.addEventListener('beforeunload', function(e) {
-        if (hasUnsavedChanges) {
-            e.returnValue = 'У вас есть несохранённые изменения.';
-            return e.returnValue;
-        }
-    });
-
-    // =========================================================================
-    // 4. УМНЫЙ SCREEN LOADER (Появляется только если запрос > 1 сек)
+    // 3. УМНЫЙ SCREEN LOADER
     // =========================================================================
     function showScreenLoader() { $('#screenLoader').addClass('active'); }
     function hideScreenLoader() { $('#screenLoader').removeClass('active'); }
-
     function showLoaderWithDelay() {
         if (loaderVisible) return;
-        loaderTimeout = setTimeout(() => {
-            showScreenLoader();
-            loaderVisible = true;
-        }, 1000);
+        loaderTimeout = setTimeout(() => { showScreenLoader(); loaderVisible = true; }, 1000);
     }
-
     function hideLoaderWithDelay() {
         if (loaderTimeout) { clearTimeout(loaderTimeout); loaderTimeout = null; }
         if (loaderVisible) { hideScreenLoader(); loaderVisible = false; }
     }
-
     function ajaxWithLoader(settings) {
         showLoaderWithDelay();
         const jqXHR = $.ajax(settings);
@@ -89,7 +67,7 @@ $(document).ready(function() {
     }
 
     // =========================================================================
-    // 5. УТИЛИТЫ И УВЕДОМЛЕНИЯ
+    // 4. УТИЛИТЫ И UI ТАБЛИЦЫ
     // =========================================================================
     function escapeHtml(text) {
         if (text === null || text === undefined) return '';
@@ -106,6 +84,7 @@ $(document).ready(function() {
         if (notificationId) sessionStorage.setItem('notification_' + notificationId, 'true');
     }
 
+    // === ДОБАВЛЕНЫ missing ФУНКЦИИ ВАЛИДАЦИИ ===
     function showFieldError($field, $errorEl) {
         $field.addClass('field-error-active shake');
         if ($errorEl && $errorEl.length) $errorEl.addClass('visible');
@@ -116,17 +95,14 @@ $(document).ready(function() {
         $field.removeClass('field-error-active');
         $('#' + $field.attr('id') + 'Error').removeClass('visible');
     }
+    // ============================================
 
-    // =========================================================================
-    // 6. UI ТАБЛИЦЫ
-    // =========================================================================
     function refreshTableUI() {
         $('.table-row:not(.editing) .edit-field[placeholder]').each(function() {
             const $field = $(this);
             if (!$field.data('original-placeholder')) $field.data('original-placeholder', $field.attr('placeholder'));
             $field.attr('placeholder', '');
         });
-
         $('.table-cell .edit-field').not('.table-check').each(function() {
             const $field = $(this);
             let $wrapper = $field.parent('.field-tooltip-wrapper');
@@ -142,7 +118,6 @@ $(document).ready(function() {
             updateTooltip();
             $field.off('input.tooltip change.tooltip').on('input.tooltip change.tooltip', updateTooltip);
         });
-
         $('.table-row').each(function() {
             const $row = $(this);
             const isEditing = $row.hasClass('editing');
@@ -157,30 +132,26 @@ $(document).ready(function() {
             });
         });
     }
-
     $(window).on('resize', function() {
         clearTimeout(resizeTimer);
         resizeTimer = setTimeout(refreshTableUI, 250);
     });
 
     // =========================================================================
-    // 7. РАБОТА С ЗАЯВКАМИ
+    // 5. РАБОТА С ЗАЯВКАМИ (АДМИН)
     // =========================================================================
     function loadPendingRequests() {
         $.ajax({ type: "GET", url: "get_pending_requests.php", dataType: 'json', success: function(response) {
             if (response.success) {
                 const newCount = response.count || 0;
                 currentRequests = response.requests || [];
-                if (!isFirstPoll && newCount > lastRequestCount) {
-                    showToast('Поступила новая заявка!', 'info', 'new_req_' + Date.now());
-                }
+                if (!isFirstPoll && newCount > lastRequestCount) showToast('Поступила новая заявка!', 'info', 'new_req_' + Date.now());
                 lastRequestCount = newCount;
                 updateMessageUI(newCount);
                 isFirstPoll = false;
             }
         }});
     }
-
     function updateMessageUI(count) {
         const $wrapper = $('#messageWrapper');
         if (count > 0) {
@@ -193,7 +164,6 @@ $(document).ready(function() {
             $('#messageCard').removeClass('pulse');
         }
     }
-
     function renderRequestsList() {
         const $list = $('#requestsList').empty();
         if (currentRequests.length === 0) {
@@ -217,9 +187,7 @@ $(document).ready(function() {
             });
         }
     }
-
     $('#messageCard').click(function() { renderRequestsList(); $('#requestsListModal').fadeIn(200); });
-
     function openRequestDetail(id) {
         $.ajax({ type: "GET", url: "get_request_details.php", data: { id: id }, dataType: 'json', success: function(response) {
             if (response.success) {
@@ -243,22 +211,18 @@ $(document).ready(function() {
             }
         }});
     }
-
     $('#closeListBtn').click(() => $('#requestsListModal').fadeOut(200));
     $('#closeDetailBtn').click(() => $('#requestDetailModal').fadeOut(200));
     $('#approveBtn').click(() => currentRequestId && processRequest(currentRequestId, 'approve'));
     $('#rejectBtn').click(() => currentRequestId && processRequest(currentRequestId, 'reject'));
 
     function processRequest(id, action) {
-        ajaxWithLoader({
-            type: "POST", url: "process_request.php", data: { id: id, action: action }, dataType: 'json'
-        }).done(function(response) {
+        ajaxWithLoader({ type: "POST", url: "process_request.php", data: { id: id, action: action }, dataType: 'json' }).done(function(response) {
             if (response && response.success) {
                 showToast(response.message, action === 'approve' ? 'success' : 'warning', 'request_' + action + '_' + id);
                 currentRequests = currentRequests.filter(req => req.id !== id);
                 const remainingCount = currentRequests.length;
                 updateMessageUI(remainingCount);
-                
                 if (remainingCount > 0) {
                     renderRequestsList();
                     $('#requestDetailModal').fadeOut(200);
@@ -273,62 +237,46 @@ $(document).ready(function() {
                 showToast((response && response.message) ? response.message : "Неизвестная ошибка при обработке", 'error', 'request_error_' + id);
             }
         }).fail(function(xhr) {
-            if (xhr.status === 403) {
-                showToast("Сессия обновляется. Повторите действие.", 'warning');
-                setTimeout(() => location.reload(), 1500);
-            } else {
-                showToast("Ошибка сети или сервера при обработке заявки", 'error', 'request_network_error_' + id);
-            }
+            if (xhr.status === 403) { showToast("Сессия обновляется. Повторите действие.", 'warning'); setTimeout(() => location.reload(), 1500); } 
+            else { showToast("Ошибка сети или сервера при обработке заявки", 'error', 'request_network_error_' + id); }
         });
     }
 
     // =========================================================================
-    // 8. ЗАГРУЗКА И ПОИСК В ТАБЛИЦАХ
+    // 6. ЗАГРУЗКА И ПОИСК В ТАБЛИЦАХ
     // =========================================================================
     function updateTableIfVisible() {
         if ($('.choice').is(':visible')) return;
         if ($('.new-entry.search').is(':visible')) performSearch();
         else if ($('.new-entry:not(.search)').is(':visible')) loadLastRecords();
     }
-
     function showTableLoader() {
         $("#results").html(`<div class="table-loader" id="tableLoader"><div class="skeleton-table"><div class="skeleton-header">${Array(12).fill('').map(() => `<div class="skeleton-cell"><div class="skeleton-block medium"></div></div>`).join('')}</div>${Array(5).fill('').map(() => `<div class="skeleton-row">${Array(12).fill('').map(() => `<div class="skeleton-cell"><div class="skeleton-block medium"></div></div>`).join('')}</div>`).join('')}</div></div>`);
     }
-
     function hideTableLoader(callback) {
         const loader = $('#tableLoader');
         const finish = () => { if (callback) callback(); refreshTableUI(); };
         if (loader.length) { loader.addClass('fade-out'); setTimeout(finish, 300); } else { finish(); }
     }
-
     function performSearch() {
-        ajaxWithLoader({
-            type: "GET", url: "search_records.php", cache: false,
-            data: { search: $('#searchInput').val().trim(), inspection: $('#inspectionFilter').is(':checked'), yearRecord: $('#yearRecordFilter').is(':checked'), dateFilter: $('#dateFilter').val() }
-        }).done(function(response) {
+        ajaxWithLoader({ type: "GET", url: "search_records.php", cache: false, data: { search: $('#searchInput').val().trim(), inspection: $('#inspectionFilter').is(':checked'), yearRecord: $('#yearRecordFilter').is(':checked'), dateFilter: $('#dateFilter').val() } }).done(function(response) {
             hideTableLoader(() => { $("#results").html(response); $('#results .my-table').addClass('table-loaded'); });
-        }).fail(function() {
-            hideTableLoader(() => $("#results").html('<div class="empty-message">Ошибка при загрузке данных</div>'));
-        });
+        }).fail(function() { hideTableLoader(() => $("#results").html('<div class="empty-message">Ошибка при загрузке данных</div>')); });
     }
-
     function loadLastRecords() {
         ajaxWithLoader({ type: "GET", url: "get_last_records.php", cache: false }).done(function(response) {
             hideTableLoader(() => { $("#results").html(response); $('#results .my-table').addClass('table-loaded'); });
-        }).fail(function() {
-            hideTableLoader(() => $("#results").html('<div class="empty-message">Ошибка при загрузке данных</div>'));
-        });
+        }).fail(function() { hideTableLoader(() => $("#results").html('<div class="empty-message">Ошибка при загрузке данных</div>')); });
     }
 
     // =========================================================================
-    // 9. АВТОКОМПЛИТ МАРКИ
+    // 7. АВТОКОМПЛИТ МАРКИ
     // =========================================================================
     function initBrandAutocomplete($input) {
         const $wrapper = $input.closest('.autocomplete-wrapper');
         let $list = $wrapper.find('.autocomplete-list');
         if ($list.length === 0) $list = $('<div class="autocomplete-list"></div>').appendTo($wrapper);
         let activeIndex = -1, debounceTimer;
-        
         $input.on('input', function() {
             const query = $(this).val().trim();
             if (query.length < 1) { $list.removeClass('active').empty(); return; }
@@ -347,7 +295,6 @@ $(document).ready(function() {
                 }});
             }, 300);
         });
-        
         $input.on('keydown', function(e) {
             const $items = $list.find('.autocomplete-item');
             if (e.key === 'ArrowDown') { e.preventDefault(); activeIndex = Math.min(activeIndex + 1, $items.length - 1); $items.removeClass('active').eq(activeIndex).addClass('active'); }
@@ -360,70 +307,69 @@ $(document).ready(function() {
     $('input[name="carMake"]').each(function() { $(this).wrap('<div class="autocomplete-wrapper"></div>'); initBrandAutocomplete($(this)); });
 
     // =========================================================================
-    // 10. ДОБАВЛЕНИЕ НОВОЙ ЗАПИСИ (ПУЛЕПРОБИВАЕМАЯ ЛОГИКА ЧЕКБОКСОВ)
+    // 8. ДОБАВЛЕНИЕ НОВОЙ ЗАПИСИ (АДМИН)
     // =========================================================================
-    
-    // 1. Сбрасываем галочки ПРИ ОТКРЫТИИ формы (борьба с автозаполнением браузера)
     $('#entryBtn').click(function() { 
         $('.choice, .new-entry').hide(); 
         $('.new-entry:not(.search)').show(); 
         $('#newEntryBtnBack').show(); 
         $("input[name='inspection'], input[name='yearRecord']").prop('checked', false);
+        clearFieldError($('#fullNameApplicant')); // Теперь эта функция определена выше
         loadLastRecords(); 
     });
 
-    // 2. Сбрасываем галочки ПРИ ОЧИСТКЕ формы
     $("#clearFormBtn").click(function() {
         $("#carForm")[0].reset(); 
         $('.field-error').removeClass('visible'); 
         $('.required-field').removeClass('field-error-active');
-        $("input[name='inspection'], input[name='yearRecord']").prop('checked', false);
         showToast("Форма очищена", 'info', 'form_cleared_' + Date.now()); 
         hasUnsavedChanges = false; 
     });
 
-    // 3. Отправка формы
+    $("#fullNameApplicant").on('input', function() { 
+        if ($(this).val().trim()) clearFieldError($(this)); 
+    });
+
     $("#carForm").submit(function(event) {
         event.preventDefault();
+        
         const fullNameApplicant = ($("input[name='fullNameApplicant']").val() || '').trim();
         const carMake = ($("input[name='carMake']").val() || '').trim();
-        const stateNumberMain = ($("input[name='stateNumberMain']").val() || '').trim();
-        const stateRegion = ($("input[name='stateRegion']").val() || '').trim();
+        const stateNumber = ($("input[name='stateNumber']").val() || '').trim();
         const driverLastName = ($("input[name='driverLastName']").val() || '').trim();
         const entryDate = ($("input[name='entryDate']").val() || '').trim();
         const outDate = ($("input[name='outDate']").val() || '').trim();
         const comment = ($("textarea[name='comment']").val() || '').trim();
-        
-        const finalStateNumber = stateRegion ? `${stateNumberMain} ${stateRegion}`.trim() : stateNumberMain;
 
+        // ВАЛИДАЦИЯ: ФИО обязательно для админа
         clearFieldError($('#fullNameApplicant'));
         if (!fullNameApplicant) {
-            showFieldError($('#fullNameApplicant'), $('#fullNameError'));
+            showFieldError($('#fullNameApplicant'), $('#fullNameError')); // Теперь эта функция определена выше
             showToast("Пожалуйста, укажите ФИО инициатора!", 'warning');
             $("input[name='fullNameApplicant']").focus();
             return;
         }
-        if (!carMake && !finalStateNumber && !driverLastName && !entryDate && !outDate && !comment) {
+
+        if (!carMake && !stateNumber && !driverLastName && !entryDate && !outDate && !comment) {
             showToast("Пожалуйста, заполните хотя бы одно дополнительное поле!", 'warning');
             return;
         }
 
-        // ЯВНОЕ И БЕЗОПАСНОЕ ЧТЕНИЕ СОСТОЯНИЯ ЧЕКБОКСОВ
         const isInspection = $("input[name='inspection']").is(':checked') ? 1 : 0;
         const isYearRecord = $("input[name='yearRecord']").is(':checked') ? 1 : 0;
 
         pendingSubmitData = {
             carMake: carMake, 
-            stateNumber: finalStateNumber, 
+            stateNumber: stateNumber, 
             driverLastName: driverLastName,
-            fullNameApplicant: fullNameApplicant,
+            fullNameApplicant: fullNameApplicant, 
             entryTime: $("input[name='entryTime']").val() || '', 
             outTime: $("input[name='outTime']").val() || '',
             entryDate: entryDate, 
             outDate: outDate, 
             comment: comment,
-            inspection: isInspection,   // Отправит строго 0 или 1
-            yearRecord: isYearRecord    // Отправит строго 0 или 1
+            inspection: isInspection,
+            yearRecord: isYearRecord
         };
         pendingSubmitYearRecord = isYearRecord;
         
@@ -432,8 +378,10 @@ $(document).ready(function() {
         $('#confirmSubmitModal').addClass('active');
     });
 
-    $("#fullNameApplicant").on('input', function() { if ($(this).val().trim()) clearFieldError($(this)); });
-    $('#confirmSubmitCancel, #confirmSubmitOverlay').click(function() { $('#confirmSubmitModal').removeClass('active'); pendingSubmitData = null; });
+    $('#confirmSubmitCancel, #confirmSubmitOverlay').click(function() { 
+        $('#confirmSubmitModal').removeClass('active'); 
+        pendingSubmitData = null; 
+    });
     
     $('#confirmSubmitOk').click(function() {
         if (!pendingSubmitData) return;
@@ -447,8 +395,8 @@ $(document).ready(function() {
                 showToast(response.message, 'success', 'record_add_success_' + Date.now());
                 if (!pendingSubmitYearRecord) {
                     $("#carForm")[0].reset();
-                    // Гарантированный сброс после успешной отправки
                     $("input[name='inspection'], input[name='yearRecord']").prop('checked', false);
+                    clearFieldError($('#fullNameApplicant'));
                 }
                 updateTableIfVisible(); 
                 hasUnsavedChanges = false;
@@ -465,7 +413,7 @@ $(document).ready(function() {
     });
 
     // =========================================================================
-    // 11. РЕДАКТИРОВАНИЕ, СОХРАНЕНИЕ И ОТКАТ
+    // 9. РЕДАКТИРОВАНИЕ, СОХРАНЕНИЕ И ОТКАТ
     // =========================================================================
     $(document).on('click', '.edit-btn', function() {
         const $editingRow = $('.table-row.editing');
@@ -478,8 +426,7 @@ $(document).ready(function() {
         
         undoStore[id] = {
             car_make: row.find('input[data-field="car_make"]').val(),
-            state_number_main: row.find('input[data-field="state_number_main"]').val(),
-            state_number_region: row.find('input[data-field="state_number_region"]').val(),
+            state_number: row.find('input[data-field="state_number"]').val(),
             driver_last_name: row.find('input[data-field="driver_last_name"]').val(),
             full_name_applicant: row.find('input[data-field="full_name_applicant"]').val(),
             entry_time: row.find('input[data-field="entry_time"]').val(),
@@ -521,14 +468,10 @@ $(document).ready(function() {
         const row = $(this).closest('tr');
         const id = row.data('id');
         
-        const stateMain = row.find('input[data-field="state_number_main"]').val().trim();
-        const stateRegion = row.find('input[data-field="state_number_region"]').val().trim();
-        const finalStateNumber = stateRegion ? `${stateMain} ${stateRegion}` : stateMain;
-
         const data = {
             id: id,
             car_make: row.find('input[data-field="car_make"]').val().trim(),
-            state_number: finalStateNumber,
+            state_number: row.find('input[data-field="state_number"]').val().trim(),
             driver_last_name: row.find('input[data-field="driver_last_name"]').val().trim(),
             full_name_applicant: row.find('input[data-field="full_name_applicant"]').val().trim(),
             entry_time: row.find('input[data-field="entry_time"]').val(),
@@ -540,15 +483,12 @@ $(document).ready(function() {
             year_record: row.find('input[data-field="year_record"]').is(':checked') ? 1 : 0
         };
 
-        if (!data.car_make && !data.state_number && !data.driver_last_name && 
-            !data.full_name_applicant && !data.comment && !data.entry_date && !data.out_date) {
+        if (!data.car_make && !data.state_number && !data.driver_last_name && !data.full_name_applicant && !data.comment && !data.entry_date && !data.out_date) {
             showToast("Пожалуйста, заполните хотя бы одно поле!", 'warning', 'validation_save_' + Date.now());
             return; 
         }
 
-        ajaxWithLoader({
-            type: "POST", url: "update_record.php", data: data, dataType: 'json'
-        }).done(function(response) {
+        ajaxWithLoader({ type: "POST", url: "update_record.php", data: data, dataType: 'json' }).done(function(response) {
             if (response && response.success) {
                 showToast("Данные успешно обновлены!", 'success', 'record_update_' + id + '_' + Date.now());
                 row.removeClass('editing');
@@ -559,7 +499,6 @@ $(document).ready(function() {
                 updateRowColors(row, data.inspection);
                 hasUnsavedChanges = false;
                 updateTableIfVisible();
-                
                 setTimeout(() => {
                     $('.undo-btn').hide().removeClass('show');
                     const $newRow = $(`tr[data-id="${id}"]`);
@@ -580,15 +519,9 @@ $(document).ready(function() {
         const $row = $undoBtn.closest('tr');
         const id = parseInt($undoBtn.attr('data-undo-id')) || $row.data('id');
         const previousData = undoStore[id];
+        if (!previousData) { showToast("Нет данных для отката", 'error', 'undo_no_data_' + Date.now()); return; }
         
-        if (!previousData) {
-            showToast("Нет данных для отката", 'error', 'undo_no_data_' + Date.now());
-            return;
-        }
-        
-        ajaxWithLoader({
-            type: "POST", url: "undo_record.php", data: { id: id, previousData: JSON.stringify(previousData) }, dataType: 'json', cache: false
-        }).done(function(response) {
+        ajaxWithLoader({ type: "POST", url: "undo_record.php", data: { id: id, previousData: JSON.stringify(previousData) }, dataType: 'json', cache: false }).done(function(response) {
             if (response && response.success) {
                 showToast("Данные восстановлены", 'success', 'undo_success_' + Date.now());
                 delete undoStore[id];
@@ -602,18 +535,11 @@ $(document).ready(function() {
         });
     });
 
-    $(document).on('click', '.delete-btn', function() {
-        deleteId = $(this).data('id');
-        $('#confirmModal').addClass('active');
-    });
-    
+    $(document).on('click', '.delete-btn', function() { deleteId = $(this).data('id'); $('#confirmModal').addClass('active'); });
     $('#confirmCancel').click(function() { $('#confirmModal').removeClass('active'); deleteId = null; });
-    
     $('#confirmOk').click(function() {
         if (!deleteId) return;
-        ajaxWithLoader({
-            type: "POST", url: "delete_record.php", data: { id: deleteId }, dataType: 'json'
-        }).done(function(response) {
+        ajaxWithLoader({ type: "POST", url: "delete_record.php", data: { id: deleteId }, dataType: 'json' }).done(function(response) {
             showToast(response.message, response.success ? 'success' : 'error', 'record_delete_' + deleteId);
             $('#confirmModal').removeClass('active');
             updateTableIfVisible();
@@ -625,15 +551,13 @@ $(document).ready(function() {
     });
 
     // =========================================================================
-    // 12. НАВИГАЦИЯ И ПОИСК
+    // 10. НАВИГАЦИЯ, ПОИСК И СОРТИРОВКА
     // =========================================================================
     $('#searchBtn').click(function() { $('.choice, .new-entry').hide(); $('.new-entry.search').show(); $('#newEntryBtnBack').show(); performSearch(); });
-    
     $('#newEntryBtnBack').click(function() {
         if (hasUnsavedChanges && !confirm('У вас есть несохранённые изменения. Вернуться назад?')) return;
         $('.new-entry').hide(); $('.choice').show(); $(this).hide(); $('#results').empty(); hasUnsavedChanges = false; 
     });
-
     $('#searchInput').on('input', function() { clearTimeout(searchTimer); searchTimer = setTimeout(performSearch, 500); });
     $('#inspectionFilter, #yearRecordFilter, #dateFilter').on('change', performSearch);
     $("#clearSearchBtn").click(function() {
@@ -641,18 +565,6 @@ $(document).ready(function() {
         performSearch(); showToast("Фильтры поиска сброшены", 'info', 'search_clear_' + Date.now());
     });
 
-    $(document).on('keydown', function(e) {
-        if (e.key === 'Escape') {
-            if ($('#confirmSubmitModal').hasClass('active')) { $('#confirmSubmitModal').removeClass('active'); pendingSubmitData = null; }
-            if ($('#confirmModal').hasClass('active')) { $('#confirmModal').removeClass('active'); deleteId = null; }
-            if ($('#requestDetailModal').is(':visible')) $('#requestDetailModal').fadeOut(200);
-            if ($('#requestsListModal').is(':visible')) $('#requestsListModal').fadeOut(200);
-        }
-    });
-
-    // =========================================================================
-    // 13. СОРТИРОВКА ТАБЛИЦЫ
-    // =========================================================================
     $(document).on('click', '.table-header-cell.sortable', function() {
         const $th = $(this); const $table = $th.closest('table'); const column = $th.data('sort');
         if (!column) return;
@@ -663,7 +575,6 @@ $(document).ready(function() {
         let direction = $th.hasClass('sort-asc') ? 'desc' : ($th.hasClass('sort-desc') ? 'reset' : 'asc');
         $table.find('.table-header-cell').removeClass('sort-asc sort-desc');
         const $rows = $tbody.find('tr.table-row').get();
-        
         if (direction === 'reset') {
             $rows.sort((a, b) => ($(a).data('original-index') || 0) - ($(b).data('original-index') || 0));
         } else {
@@ -696,63 +607,59 @@ $(document).ready(function() {
         return $inp.length ? $inp.val() || '' : $cell.text().trim();
     }
 
-    // =========================================================================
-    // 14. ИНИЦИАЛИЗАЦИЯ
-    // =========================================================================
     loadPendingRequests();
     setInterval(loadPendingRequests, 5000);
     setTimeout(refreshTableUI, 500);
     $(document).on('DOMNodeInserted', '#results', function() { setTimeout(refreshTableUI, 100); });
-});
 
-// ======================== ПРОВЕРКА ГОСНОМЕРА ========================
-const PLATE_LETTERS = 'АВЕКМНОРСТУХ';
-const LATIN_TO_CYRILLIC_MAP = { 'A':'А','B':'В','E':'Е','K':'К','M':'М','H':'Н','O':'О','P':'Р','C':'С','T':'Т','Y':'У','X':'Х', 'a':'А','b':'В','e':'Е','k':'К','m':'М','h':'Н','o':'О','p':'Р','c':'С','t':'Т','y':'У','x':'Х' };
+    // =========================================================================
+    // 11. ПРОВЕРКА ГОСНОМЕРА
+    // =========================================================================
+    const PLATE_LETTERS = 'АВЕКМНОРСТУХ';
+    const LATIN_TO_CYRILLIC_MAP = { 'A':'А','B':'В','E':'Е','K':'К','M':'М','H':'Н','O':'О','P':'Р','C':'С','T':'Т','Y':'У','X':'Х', 'a':'А','b':'В','e':'Е','k':'К','m':'М','h':'Н','o':'О','p':'Р','c':'С','t':'Т','y':'У','x':'Х' };
 
-function isAllowedPlateChar(char) {
-    if (!char) return false;
-    if (/\d/.test(char) || char === ' ') return true;
-    if (PLATE_LETTERS.includes(char.toUpperCase())) return true;
-    return !!(LATIN_TO_CYRILLIC_MAP[char] || LATIN_TO_CYRILLIC_MAP[char.toUpperCase()]);
-}
-
-function normalizePlateText(text) {
-    if (!text) return '';
-    let normalized = '';
-    for (let char of text) {
-        const cyrillic = LATIN_TO_CYRILLIC_MAP[char] || LATIN_TO_CYRILLIC_MAP[char.toUpperCase()];
-        normalized += cyrillic ? cyrillic : (isAllowedPlateChar(char) ? char : '');
+    function isAllowedPlateChar(char) {
+        if (!char) return false;
+        if (/\d/.test(char) || char === ' ') return true;
+        if (PLATE_LETTERS.includes(char.toUpperCase())) return true;
+        return !!(LATIN_TO_CYRILLIC_MAP[char] || LATIN_TO_CYRILLIC_MAP[char.toUpperCase()]);
     }
-    return normalized.toUpperCase();
-}
 
-$(document).on('keydown', 'input[data-type="plate-normalize"]', function(e) {
-    const allowed = ['Backspace','Delete','Tab','Enter','Escape','ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Home','End'];
-    if (allowed.includes(e.key) || e.ctrlKey || e.metaKey) return;
-    if (!isAllowedPlateChar(e.key)) { e.preventDefault(); return; }
-    const cyrillic = LATIN_TO_CYRILLIC_MAP[e.key] || LATIN_TO_CYRILLIC_MAP[e.key.toUpperCase()];
-    if (cyrillic && !PLATE_LETTERS.includes(e.key.toUpperCase())) {
+    function normalizePlateText(text) {
+        if (!text) return '';
+        let normalized = '';
+        for (let char of text) {
+            const cyrillic = LATIN_TO_CYRILLIC_MAP[char] || LATIN_TO_CYRILLIC_MAP[char.toUpperCase()];
+            normalized += cyrillic ? cyrillic : (isAllowedPlateChar(char) ? char : '');
+        }
+        return normalized.toUpperCase();
+    }
+
+    $(document).on('keydown', 'input[data-type="plate-normalize"]', function(e) {
+        const allowed = ['Backspace','Delete','Tab','Enter','Escape','ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Home','End'];
+        if (allowed.includes(e.key) || e.ctrlKey || e.metaKey) return;
+        if (!isAllowedPlateChar(e.key)) { e.preventDefault(); return; }
+        const cyrillic = LATIN_TO_CYRILLIC_MAP[e.key] || LATIN_TO_CYRILLIC_MAP[e.key.toUpperCase()];
+        if (cyrillic && !PLATE_LETTERS.includes(e.key.toUpperCase())) {
+            e.preventDefault();
+            const pos = this.selectionStart;
+            this.value = (this.value.slice(0, pos) + cyrillic + this.value.slice(pos)).toUpperCase();
+            this.setSelectionRange(pos + 1, pos + 1);
+        }
+    });
+
+    $(document).on('input', 'input[data-type="plate-normalize"]', function() {
+        const pos = this.selectionStart;
+        const newVal = normalizePlateText(this.value);
+        if (this.value !== newVal) { this.value = newVal; this.setSelectionRange(pos, pos); }
+    });
+
+    $(document).on('paste', 'input[data-type="plate-normalize"]', function(e) {
         e.preventDefault();
-        const input = this;
-        const pos = input.selectionStart;
-        input.value = (input.value.slice(0, pos) + cyrillic + input.value.slice(pos)).toUpperCase();
-        input.setSelectionRange(pos + 1, pos + 1);
-    }
-});
-
-$(document).on('input', 'input[data-type="plate-normalize"]', function() {
-    const input = this;
-    const pos = input.selectionStart;
-    const newVal = normalizePlateText(input.value);
-    if (input.value !== newVal) { input.value = newVal; input.setSelectionRange(pos, pos); }
-});
-
-$(document).on('paste', 'input[data-type="plate-normalize"]', function(e) {
-    e.preventDefault();
-    const input = this;
-    const pasted = normalizePlateText((e.originalEvent.clipboardData || window.clipboardData).getData('text'));
-    const pos = input.selectionStart;
-    const newVal = normalizePlateText(input.value.slice(0, pos) + pasted + input.value.slice(pos));
-    input.value = newVal;
-    input.setSelectionRange(newVal.length, newVal.length);
+        const pasted = normalizePlateText((e.originalEvent.clipboardData || window.clipboardData).getData('text'));
+        const pos = this.selectionStart;
+        const newVal = normalizePlateText(this.value.slice(0, pos) + pasted + this.value.slice(pos));
+        this.value = newVal;
+        this.setSelectionRange(newVal.length, newVal.length);
+    });
 });

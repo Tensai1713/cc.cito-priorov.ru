@@ -19,7 +19,6 @@ require_once __DIR__ . '/admin_auth.php';
 <body>
 <div class="toast-container" id="toastContainer"></div>
 
-<!-- УВЕДОМЛЕНИЯ О ЗАЯВКАХ -->
 <div class="admin-messages" id="adminMessages">
     <div class="message-wrapper" id="messageWrapper" style="display: none;">
         <div class="message-badge" id="messageBadge">0</div>
@@ -33,7 +32,6 @@ require_once __DIR__ . '/admin_auth.php';
     </div>
 </div>
 
-<!-- МОДАЛКА СПИСКА ЗАЯВОК -->
 <div class="requests-list-modal" id="requestsListModal" style="display: none;">
     <div class="requests-list-content">
         <h2 class="requests-list-title">Список заявок</h2>
@@ -42,7 +40,6 @@ require_once __DIR__ . '/admin_auth.php';
     </div>
 </div>
 
-<!-- МОДАЛКА ДЕТАЛЕЙ ЗАЯВКИ -->
 <div class="request-detail-modal" id="requestDetailModal" style="display: none;">
     <div class="request-detail-content">
         <button class="btn-close-modal" id="closeDetailBtn">✕</button>
@@ -67,13 +64,11 @@ require_once __DIR__ . '/admin_auth.php';
     </div>
 </div>
 
-<!-- ЛОГО -->
  <div class="logo-wrap">
   <!-- <img class="logo" src="./img/logo.png" alt=""> -->
   <button id="newEntryBtnBack" class="btn new-entry__btn-back" style="display: none;">Назад</button>
  </div>
 
-<!-- ГЛАВНОЕ МЕНЮ -->
 <div class="choice">
     <button id="entryBtn" class="record_btn btn">
         <svg class="record-svg" width="40" height="40" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -91,7 +86,6 @@ require_once __DIR__ . '/admin_auth.php';
 </div>
 
 
-<!-- ФОРМА ДОБАВЛЕНИЯ ЗАПИСИ -->
 <div class="new-entry" style="display: none;">
     <form class="new-entry__panel" id="carForm">
         <div class="new-entry__inputs">
@@ -99,13 +93,10 @@ require_once __DIR__ . '/admin_auth.php';
                 <label>Марка</label>
                 <input class="new-entry__input" type="text" name="carMake">
             </div>
-            <div class="new-entry__column grid-item2">
-    <label>Гос/номер</label>
-    <div class="plate-input-group">
-        <input class="plate-main" type="text" name="stateNumberMain" placeholder="А123ТВ" data-type="plate-normalize" maxlength="10">
-        <input class="plate-region" type="text" name="stateRegion" placeholder="777" data-type="plate-normalize" maxlength="5">
-    </div>
-</div>
+                <div class="new-entry__column grid-item2">
+                    <label>Гос/номер</label>
+                    <input class="new-entry__input" type="text" name="stateNumber" placeholder="А123ТВ777" data-type="plate-normalize" maxlength="15">
+                </div>
             <div class="new-entry__column grid-item3">
                 <label>Водитель</label>
                 <input class="new-entry__input" type="text" name="driverLastName">
@@ -149,7 +140,6 @@ require_once __DIR__ . '/admin_auth.php';
     </form>
 </div>
 
-<!-- ПАНЕЛЬ ПОИСКА -->
 <div class="new-entry search" style="display: none;">
     <div class="search-panel">
         <div class="search-container">
@@ -188,10 +178,8 @@ require_once __DIR__ . '/admin_auth.php';
     </div>
 </div>
 
-<!-- КОНТЕЙНЕР ДЛЯ ТАБЛИЦ -->
 <div id="results"></div>
 
-<!-- МОДАЛКА ПОДТВЕРЖДЕНИЯ ОТПРАВКИ -->
 <div class="confirm-submit-modal" id="confirmSubmitModal">
     <div class="confirm-submit-overlay" id="confirmSubmitOverlay"></div>
     <div class="confirm-submit-content">

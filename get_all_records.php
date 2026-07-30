@@ -19,7 +19,7 @@ if ($result && $result->num_rows > 0) {
                 <th class='table-header-cell'>Марка</th>
                 <th class='table-header-cell'>Гос/номер</th>
                 <th class='table-header-cell'>Фамилия водителя</th>
-                <th class='table-header-cell'>ФИО заказчика</th>
+                <th class='table-header-cell'>ФИО инициатора</th>
                 <th class='table-header-cell'>Время въезда</th>
                 <th class='table-header-cell'>Время выезда</th>
                 <th class='table-header-cell'>Комментарий</th>

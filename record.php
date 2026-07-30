@@ -2,7 +2,7 @@
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
-// 1. Запускаем сессию (ОБЯЗАТЕЛЬНО для чтения $_SESSION['auth_full_name'])
+// 1. Запускаем сессию (ОБЯЗАТЕЛЬНО для чтения $_SESSION)
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
@@ -10,7 +10,7 @@ if (session_status() === PHP_SESSION_NONE) {
 // 2. Разрешаем доступ к БД для этого скрипта (обход проверки в db_connect.php)
 define('USER_ACCESS', true);
 
-// 3. Подключаем БД и хелперы (БЕЗ admin_auth.php!)
+// 3. Подключаем БД и хелперы
 require_once 'db_connect.php';
 require_once 'helpers.php';
 
@@ -54,10 +54,17 @@ try {
     $out_date_raw = trim($_POST['outDate'] ?? '');
     $comment = trim($_POST['comment'] ?? '');
 
-    // 2. ФИО берем из сессии авторизованного пользователя (а не из формы!)
-    $full_name_applicant = trim($_SESSION['auth_full_name'] ?? '');
+    // 2. УМНАЯ ЛОГИКА ФИО:
+    // Сначала пробуем взять то, что ввел админ в форму
+    $full_name_applicant = trim($_POST['fullNameApplicant'] ?? '');
+    
+    // Если поле пустое (значит, заявку отправил пользователь с index.php, где этого поля нет)
+    // берем данные из сессии авторизованного пользователя
     if (empty($full_name_applicant)) {
-        $full_name_applicant = trim($_SESSION['auth_login'] ?? 'Неизвестный пользователь');
+        $full_name_applicant = trim($_SESSION['auth_full_name'] ?? '');
+        if (empty($full_name_applicant)) {
+            $full_name_applicant = trim($_SESSION['auth_login'] ?? 'Неизвестный пользователь');
+        }
     }
 
     // 3. Конвертация дат
@@ -68,15 +75,15 @@ try {
     $inspection = (int)($_POST['inspection'] ?? 0);
     $year_record = (int)($_POST['yearRecord'] ?? 0);
 
-    // 5. Проверка на заполненность хотя бы одного поля
+    // 5. Проверка на заполненность хотя бы одного поля (включая ФИО для надежности)
     if (empty($car_make) && empty($state_number) && empty($driver_last_name) && 
-        empty($comment) && empty($entry_date_raw) && empty($out_date_raw)) {
+        empty($full_name_applicant) && empty($comment) && empty($entry_date_raw) && empty($out_date_raw)) {
         http_response_code(400);
         echo json_encode(['success' => false, 'message' => 'Пожалуйста, заполните хотя бы одно поле!']);
         exit;
     }
 
-    // 6. Приводим пустые строки к NULL для БД
+    // 6. Приводим пустые строки к NULL для корректной записи в БД
     $car_make = $car_make !== '' ? $car_make : null;
     $state_number = $state_number !== '' ? $state_number : null;
     $driver_last_name = $driver_last_name !== '' ? $driver_last_name : null;

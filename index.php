@@ -267,10 +267,7 @@ if (!$is_logged_in) {
                 <div class="new-entry__column grid-item1"><label>Марка</label><input class="new-entry__input" type="text" name="carMake"></div>
                 <div class="new-entry__column grid-item2">
                     <label>Гос/номер</label>
-                    <div class="plate-input-group">
-                        <input class="plate-main" type="text" name="stateNumberMain" placeholder="А123ТВ" data-type="plate-normalize" maxlength="10">
-                        <input class="plate-region" type="text" name="stateRegion" placeholder="777" data-type="plate-normalize" maxlength="5">
-                    </div>
+                    <input class="new-entry__input" type="text" name="stateNumber" placeholder="А123ТВ777" data-type="plate-normalize" maxlength="15">
                 </div>
                 <div class="new-entry__column grid-item3"><label>Водитель</label><input class="new-entry__input" type="text" name="driverLastName"></div>
                 <div class="new-entry__column grid-item5"><label>Время въезда</label><input class="new-entry__input" type="time" name="entryTime"></div>

@@ -44,7 +44,7 @@ if ($result->num_rows > 0) {
                 <th class='table-header-cell sortable' data-sort='car_make'>Марка <span class='sort-arrow'></span></th>
                 <th class='table-header-cell sortable' data-sort='state_number'>Гос/номер <span class='sort-arrow'></span></th>
                 <th class='table-header-cell sortable' data-sort='driver_last_name'>Фамилия водителя <span class='sort-arrow'></span></th>
-                <th class='table-header-cell sortable' data-sort='full_name_applicant'>ФИО заказчика <span class='sort-arrow'></span></th>
+                <th class='table-header-cell sortable' data-sort='full_name_applicant'>ФИО инициатора<span class='sort-arrow'></span></th>
                 <th class='table-header-cell sortable' data-sort='entry_time'>Время въезда <span class='sort-arrow'></span></th>
                 <th class='table-header-cell sortable' data-sort='out_time'>Время выезда <span class='sort-arrow'></span></th>
                 <th class='table-header-cell sortable' data-sort='comment'>Комментарий <span class='sort-arrow'></span></th>
