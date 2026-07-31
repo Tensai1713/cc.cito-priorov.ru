@@ -64,35 +64,21 @@ if ($result->num_rows > 0) {
         $entryDate = formatDateForMask($row['entry_date']);
         $outDate = formatDateForMask($row['out_date']);
 
-        $stateNumber = $row['state_number'] ?? '';
-        $stateMain = $stateNumber;
-        $stateRegion = '';
-        if (strpos($stateNumber, ' ') !== false) {
-            $parts = explode(' ', $stateNumber, 2);
-            $stateMain = trim($parts[0]);
-            $stateRegion = trim($parts[1]);
-        }
-
         echo "<tr class='table-row' $rowColor data-id='" . htmlspecialchars($row['id']) . "'>";
-        echo "<td class='table-cell'><input type='text' class='edit-field' data-field='car_make' value='" . htmlspecialchars($row['car_make']) . "' disabled></td>";
+        echo "<td class='table-cell'><span class='field-tooltip-wrapper'><input type='text' class='edit-field' data-field='car_make' value='" . htmlspecialchars($row['car_make']) . "' disabled></span></td>";
         
-        echo "<td class='table-cell'>";
-        echo "<div class='plate-row'>";
-        echo "<input type='text' class='edit-field plate-row-main' data-field='state_number_main' value='" . htmlspecialchars($stateMain) . "' data-type='plate-normalize' maxlength='10' disabled>";
-        echo "<input type='text' class='edit-field plate-row-region' data-field='state_number_region' value='" . htmlspecialchars($stateRegion) . "' data-type='plate-normalize' maxlength='6' disabled placeholder='Регион'>";
-        echo "</div>";
-        echo "</td>";
+        // ИСПРАВЛЕНО: Одно поле вместо двух
+        echo "<td class='table-cell'><span class='field-tooltip-wrapper'><input type='text' class='edit-field' data-field='state_number' value='" . htmlspecialchars($row['state_number'] ?? '') . "' data-type='plate-normalize' maxlength='15' disabled></span></td>";
 
-        echo "<td class='table-cell'><input type='text' class='edit-field' data-field='driver_last_name' value='" . htmlspecialchars($row['driver_last_name']) . "' disabled></td>";
-        echo "<td class='table-cell'><input type='text' class='edit-field' data-field='full_name_applicant' value='" . htmlspecialchars($row['full_name_applicant']) . "' disabled></td>";
-        echo "<td class='table-cell'><input type='time' class='edit-field' data-field='entry_time' value='" . $entryTime . "' disabled></td>";
-        echo "<td class='table-cell'><input type='time' class='edit-field' data-field='out_time' value='" . $outTime . "' disabled></td>";
-        echo "<td class='table-cell'><textarea class='edit-field' data-field='comment' disabled rows='4' style='resize:none;'>" . htmlspecialchars($row['comment']) . "</textarea></td>";
+        echo "<td class='table-cell'><span class='field-tooltip-wrapper'><input type='text' class='edit-field' data-field='driver_last_name' value='" . htmlspecialchars($row['driver_last_name']) . "' disabled></span></td>";
+        echo "<td class='table-cell'><span class='field-tooltip-wrapper'><input type='text' class='edit-field' data-field='full_name_applicant' value='" . htmlspecialchars($row['full_name_applicant']) . "' disabled></span></td>";
+        echo "<td class='table-cell'><span class='field-tooltip-wrapper'><input type='text' class='edit-field custom-time-picker' data-field='entry_time' value='" . $entryTime . "' placeholder='ЧЧ:ММ'  disabled></span></td>";
+        echo "<td class='table-cell'><span class='field-tooltip-wrapper'><input type='text' class='edit-field custom-time-picker' data-field='out_time' value='" . $outTime . "' placeholder='ЧЧ:ММ'  disabled></span></td>";
+        echo "<td class='table-cell'><span class='field-tooltip-wrapper'><textarea class='edit-field' data-field='comment' disabled rows='4' style='resize:none;'>" . htmlspecialchars($row['comment']) . "</textarea></span></td>";
         echo "<td class='table-cell'><input type='checkbox' class='edit-field table-check' data-field='inspection' value='1' " . ($row['inspection'] == 1 ? 'checked' : '') . " disabled></td>";
         echo "<td class='table-cell'><input type='checkbox' class='edit-field table-check' data-field='year_record' value='1' " . ($row['year_record'] == 1 ? 'checked' : '') . " disabled></td>";
-        echo "<td class='table-cell'><input type='text' class='edit-field' data-type='date-mask' data-field='entry_date' value='" . $entryDate . "' placeholder='ДД.ММ.ГГГГ' maxlength='10' disabled></td>";
-        echo "<td class='table-cell'><input type='text' class='edit-field' data-type='date-mask' data-field='out_date' value='" . $outDate . "' placeholder='ДД.ММ.ГГГГ' maxlength='10' disabled></td>";
-        
+        echo "<td class='table-cell'><span class='field-tooltip-wrapper'><input type='text' class='edit-field custom-date-picker' data-field='entry_date' value='" . $entryDate . "' placeholder='ДД.ММ.ГГГГ'  disabled></span></td>";
+        echo "<td class='table-cell'><span class='field-tooltip-wrapper'><input type='text' class='edit-field custom-date-picker' data-field='out_date' value='" . $outDate . "' placeholder='ДД.ММ.ГГГГ'  disabled></span></td>";        
         $deleteBtn = canDelete() ? "<button class='delete-btn table-btn' data-id='" . htmlspecialchars($row['id']) . "'>Удалить</button>" : "";
         
         echo "<td class='table-cell actions-cell'>";

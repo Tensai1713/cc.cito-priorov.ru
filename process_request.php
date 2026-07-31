@@ -6,6 +6,7 @@ define('ADMIN_AUTH', true);
 require_once __DIR__ . '/admin_auth.php';
 require_once 'db_connect.php';
 require_once 'helpers.php';
+require_once 'allowed_ips.php'; // Подключаем файл с проверкой IP
 
 header('Content-Type: application/json; charset=utf-8');
 
@@ -29,7 +30,7 @@ if (!function_exists('convertDateForDB')) {
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     http_response_code(405);
-    echo json_encode(['success' => false, 'message' => 'Метод не поддерживается']);
+    echo json_encode(['success' => false, 'message' => 'Метод не поддерживается'], JSON_UNESCAPED_UNICODE);
     exit;
 }
 
@@ -38,9 +39,18 @@ $action = $_POST['action'] ?? '';
 
 if ($id <= 0 || !in_array($action, ['approve', 'reject'])) {
     http_response_code(400);
-    echo json_encode(['success' => false, 'message' => 'Неверные параметры']);
+    echo json_encode(['success' => false, 'message' => 'Неверные параметры'], JSON_UNESCAPED_UNICODE);
     exit;
 }
+
+// =========================================================================
+// === ПРОВЕРКА ПРАВ НА ОТКЛОНЕНИЕ ЗАЯВКИ ===
+if ($action === 'reject' && !canReject()) {
+    http_response_code(403);
+    echo json_encode(['success' => false, 'message' => 'У вас нет прав для отклонения заявок'], JSON_UNESCAPED_UNICODE);
+    exit;
+}
+// ==========================================
 
 try {
     $stmt = $conn->prepare("SELECT * FROM requests WHERE id = ? AND status = 'pending'");
@@ -51,7 +61,7 @@ try {
     $stmt->close();
 
     if (!$request) {
-        echo json_encode(['success' => false, 'message' => 'Заявка не найдена или уже обработана']);
+        echo json_encode(['success' => false, 'message' => 'Заявка не найдена или уже обработана'], JSON_UNESCAPED_UNICODE);
         exit;
     }
 
@@ -95,7 +105,6 @@ try {
         }
         $update->close();
 
-        // ✅ ИЗМЕНЕНО: Простое сообщение без номера заявки
         echo json_encode(['success' => true, 'message' => "Заявка успешно одобрена"], JSON_UNESCAPED_UNICODE);
 
     } elseif ($action === 'reject') {
@@ -104,7 +113,6 @@ try {
         
         if ($update->execute()) {
             $update->close();
-            // ✅ ИЗМЕНЕНО: Простое сообщение без номера заявки
             echo json_encode(['success' => true, 'message' => "Заявка отклонена"], JSON_UNESCAPED_UNICODE);
         } else {
             throw new Exception('Ошибка обновления: ' . $update->error);

@@ -284,7 +284,7 @@ if (!$is_logged_in) {
                 <div class="new-entry__column grid-item5">
                     <label>Время въезда</label>
                     <div class="time-input-wrapper">
-                        <input class="new-entry__input custom-time-picker" type="text" name="entryTime" placeholder="ЧЧ:ММ" readonly>
+                        <input class="new-entry__input custom-time-picker" type="text" name="entryTime" placeholder="ЧЧ:ММ" >
                         <svg class="time-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                             <path d="M12 8V12L15 15M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                         </svg>
@@ -294,7 +294,7 @@ if (!$is_logged_in) {
                 <div class="new-entry__column grid-item6">
                     <label>Время выезда</label>
                     <div class="time-input-wrapper">
-                        <input class="new-entry__input custom-time-picker" type="text" name="outTime" placeholder="ЧЧ:ММ" readonly>
+                        <input class="new-entry__input custom-time-picker" type="text" name="outTime" placeholder="ЧЧ:ММ" >
                         <svg class="time-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                             <path d="M12 8V12L15 15M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                         </svg>
@@ -304,7 +304,7 @@ if (!$is_logged_in) {
                               <div class="new-entry__column grid-item9">
                   <label>Дата въезда</label>
                   <div class="date-input-wrapper">
-                      <input class="new-entry__input custom-date-picker" type="text" name="entryDate" placeholder="ДД.ММ.ГГГГ" readonly>
+                      <input class="new-entry__input custom-date-picker" type="text" name="entryDate" placeholder="ДД.ММ.ГГГГ" >
                       <svg class="calendar-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                           <path d="M8 7V3M16 7V3M7 11H17M5 21H19C20.1046 21 21 20.1046 21 19V8C21 6.89543 20.1046 6 19 6H5C3.89543 6 3 6.89543 3 8V19C3 20.1046 3.89543 21 5 21Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                       </svg>
@@ -313,7 +313,7 @@ if (!$is_logged_in) {
               <div class="new-entry__column grid-item10">
                   <label>Дата выезда</label>
                   <div class="date-input-wrapper">
-                      <input class="new-entry__input custom-date-picker" type="text" name="outDate" placeholder="ДД.ММ.ГГГГ" readonly>
+                      <input class="new-entry__input custom-date-picker" type="text" name="outDate" placeholder="ДД.ММ.ГГГГ" >
                       <svg class="calendar-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                           <path d="M8 7V3M16 7V3M7 11H17M5 21H19C20.1046 21 21 20.1046 21 19V8C21 6.89543 20.1046 6 19 6H5C3.89543 6 3 6.89543 3 8V19C3 20.1046 3.89543 21 5 21Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                       </svg>

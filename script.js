@@ -694,4 +694,136 @@ $(document).ready(function() {
         });
     }
 
+
+    // =========================================================================
+    // МАСКА И ОБРАБОТЧИК РУЧНОГО ВВОДА ДАТЫ И ВРЕМЕНИ
+    // =========================================================================
+    
+    // Маска для полей даты (ДД.ММ.ГГГГ)
+    $(document).on('input', '.custom-date-picker', function(e) {
+        const input = this;
+        const fp = input._flatpickr;
+        
+        // Если изменение от Flatpickr - пропускаем
+        if (fp && fp._isSettingValue) return;
+        
+        let value = input.value.replace(/[^\d]/g, ''); // Только цифры
+        
+        // Ограничиваем длину
+        if (value.length > 8) value = value.slice(0, 8);
+        
+        // Форматируем с точками
+        let formatted = '';
+        if (value.length > 0) {
+            let day = value.slice(0, 2);
+            if (day.length === 2) {
+                const d = parseInt(day, 10);
+                if (d > 31) day = '31';
+                if (d < 1 && day.length === 2) day = '01';
+            }
+            formatted = day;
+        }
+        if (value.length > 2) {
+            formatted += '.';
+            let month = value.slice(2, 4);
+            if (month.length === 2) {
+                const m = parseInt(month, 10);
+                if (m > 12) month = '12';
+                if (m < 1 && month.length === 2) month = '01';
+            }
+            formatted += month;
+        }
+        if (value.length > 4) {
+            formatted += '.';
+            let year = value.slice(4, 8);
+            formatted += year;
+        }
+        
+        input.value = formatted;
+    });
+
+    // Обработка потери фокуса для даты - парсинг и установка в Flatpickr
+    $(document).on('blur', '.custom-date-picker', function() {
+        const input = this;
+        const fp = input._flatpickr;
+        const value = $(input).val().trim();
+        
+        if (fp && value) {
+            const dateMatch = value.match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
+            if (dateMatch) {
+                const day = parseInt(dateMatch[1]);
+                const month = parseInt(dateMatch[2]) - 1;
+                const year = parseInt(dateMatch[3]);
+                const date = new Date(year, month, day);
+                
+                if (!isNaN(date.getTime())) {
+                    fp._isSettingValue = true;
+                    fp.setDate(date, true);
+                    setTimeout(() => { fp._isSettingValue = false; }, 100);
+                }
+            }
+        }
+    });
+
+    // Маска для полей времени (ЧЧ:ММ)
+    $(document).on('input', '.custom-time-picker', function(e) {
+        const input = this;
+        const fp = input._flatpickr;
+        
+        // Если изменение от Flatpickr - пропускаем
+        if (fp && fp._isSettingValue) return;
+        
+        let value = input.value.replace(/[^\d]/g, ''); // Только цифры
+        
+        // Ограничиваем длину
+        if (value.length > 4) value = value.slice(0, 4);
+        
+        // Форматируем с двоеточием
+        let formatted = '';
+        if (value.length > 0) {
+            let hours = value.slice(0, 2);
+            if (hours.length === 2) {
+                const h = parseInt(hours, 10);
+                if (h > 23) hours = '23';
+                if (h < 0 && hours.length === 2) hours = '00';
+            }
+            formatted = hours;
+        }
+        if (value.length > 2) {
+            formatted += ':';
+            let minutes = value.slice(2, 4);
+            if (minutes.length === 2) {
+                const m = parseInt(minutes, 10);
+                if (m > 59) minutes = '59';
+                if (m < 0 && minutes.length === 2) minutes = '00';
+            }
+            formatted += minutes;
+        }
+        
+        input.value = formatted;
+    });
+
+    // Обработка потери фокуса для времени - парсинг и установка в Flatpickr
+    $(document).on('blur', '.custom-time-picker', function() {
+        const input = this;
+        const fp = input._flatpickr;
+        const value = $(input).val().trim();
+        
+        if (fp && value) {
+            const timeMatch = value.match(/^(\d{1,2}):(\d{2})$/);
+            if (timeMatch) {
+                const hours = parseInt(timeMatch[1]);
+                const minutes = parseInt(timeMatch[2]);
+                
+                if (hours >= 0 && hours <= 23 && minutes >= 0 && minutes <= 59) {
+                    const date = fp.selectedDates[0] || new Date();
+                    date.setHours(hours, minutes, 0, 0);
+                    fp._isSettingValue = true;
+                    fp.setDate(date, true);
+                    setTimeout(() => { fp._isSettingValue = false; }, 100);
+                }
+            }
+        }
+    });
+
 });
