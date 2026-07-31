@@ -695,7 +695,7 @@ textarea.edit-field {
     display: flex;
     align-items: center;
     gap: 12px;
-    animation: slideInRight 0.3s ease-out, fadeOut 0.5s ease-in 2.5s forwards;
+    animation: slideInRight 0.3s ease-out, fadeOut 0.5s ease-in 4.5s forwards;
     min-width: 300px;
     position: relative;
     z-index: 1;
@@ -1527,7 +1527,7 @@ textarea.edit-field {
 .my-requests-btn span:not(.my-requests-count) { flex: 1; color: var(--white); width: fit-content; }
 
 .my-requests-count {
-    background: linear-gradient(135deg, var(--danger) 0%, #ff5247 100%);
+    background: linear-gradient(135deg, var(--success) 0%, #4db366 100%);
     color: var(--white);
     font-size: 14px;
     font-weight: 700;
@@ -1538,7 +1538,7 @@ textarea.edit-field {
     align-items: center;
     justify-content: center;
     padding: 0 8px;
-    box-shadow: 0 4px 12px rgba(255, 59, 48, 0.4);
+    box-shadow: 0 4px 12px #4db366;
     flex-shrink: 0;
 }
 
@@ -2142,3 +2142,304 @@ input[type="date"], input[type="time"] { color-scheme: dark; }
     color: var(--primary-light);
     text-decoration: underline;
 }
+
+
+/* ==================== КАСТОМНЫЙ КАЛЕНДАРЬ (FLATPICKR) ==================== */
+.date-input-wrapper {
+    position: relative;
+    width: 100%;
+}
+
+.calendar-icon {
+    position: absolute;
+    right: 16px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--white);
+    pointer-events: auto; /* Позволяет кликать по иконке */
+    cursor: pointer;
+    transition: var(--transition);
+    z-index: 2;
+}
+
+.date-input-wrapper:hover .calendar-icon {
+    color: var(--gray-400);
+}
+
+/* Стилизация самого календаря */
+.flatpickr-calendar {
+    background: rgba(28, 28, 30, 0.85) !important;
+    backdrop-filter: blur(20px) saturate(180%) !important;
+    -webkit-backdrop-filter: blur(20px) saturate(180%) !important;
+    border: 1px solid var(--glass-border) !important;
+    border-radius: 16px !important;
+    box-shadow: var(--glass-shadow-hover) !important;
+    color: var(--white) !important;
+    padding: 12px !important;
+}
+
+.flatpickr-months {
+    margin-bottom: 8px !important;
+}
+
+.flatpickr-current-month .flatpickr-monthDropdown-months,
+.flatpickr-current-month input.cur-year {
+    background: transparent !important;
+    color: var(--white) !important;
+    font-weight: 600 !important;
+    font-size: 16px !important;
+}
+
+.flatpickr-monthDropdown-month {
+      color: var(--black) !important;
+}
+
+
+.flatpickr-current-month .flatpickr-monthDropdown-months:hover,
+.flatpickr-current-month input.cur-year:hover {
+    background: rgba(255, 255, 255, 0.1) !important;
+}
+
+.flatpickr-weekdays {
+    background: transparent !important;
+    margin-bottom: 8px !important;
+}
+
+.flatpickr-weekday {
+    color: var(--gray-400) !important;
+    font-weight: 600 !important;
+    font-size: 13px !important;
+}
+
+.flatpickr-day {
+    color: var(--gray-200) !important;
+    border-radius: 8px !important;
+    font-size: 14px !important;
+    line-height: 30px !important;
+    max-width: 100% !important;
+    height: 30px !important;
+    transition: var(--transition) !important;
+}
+
+.flatpickr-day:hover {
+    background: rgba(255, 255, 255, 0.15) !important;
+    border-color: transparent !important;
+    color: var(--white) !important;
+}
+
+.flatpickr-day.today {
+    border-color: var(--primary) !important;
+    color: var(--primary) !important;
+}
+
+.flatpickr-day.today:hover {
+    background: var(--primary) !important;
+    color: var(--white) !important;
+}
+
+.flatpickr-day.selected,
+.flatpickr-day.startRange,
+.flatpickr-day.endRange {
+    background: var(--primary) !important;
+    border-color: var(--primary) !important;
+    color: var(--white) !important;
+    font-weight: 600 !important;
+}
+
+.flatpickr-day.selected:hover,
+.flatpickr-day.startRange:hover,
+.flatpickr-day.endRange:hover {
+    background: var(--primary-dark) !important;
+}
+
+.flatpickr-day.flatpickr-disabled,
+.flatpickr-day.prevMonthDay,
+.flatpickr-day.nextMonthDay {
+    color: var(--gray-600) !important;
+    opacity: 0.5 !important;
+}
+
+.flatpickr-day.flatpickr-disabled:hover {
+    background: transparent !important;
+}
+
+/* Стрелки навигации */
+.flatpickr-months .flatpickr-prev-month,
+.flatpickr-months .flatpickr-next-month {
+    color: var(--gray-300) !important;
+    fill: var(--gray-300) !important;
+    transition: var(--transition) !important;
+}
+
+.flatpickr-months .flatpickr-prev-month:hover,
+.flatpickr-months .flatpickr-next-month:hover {
+    color: var(--primary) !important;
+    fill: var(--primary) !important;
+}
+
+.flatpickr-current-month .numInputWrapper input[type="number"].cur-year::-webkit-outer-spin-button,
+.flatpickr-current-month .numInputWrapper input[type="number"].cur-year::-webkit-inner-spin-button {
+    -webkit-appearance: none !important;
+    appearance: none !important;
+    margin: 0 !important;
+    width: 0 !important;
+    height: 0 !important;
+    opacity: 0 !important;
+    display: none !important;
+}
+
+/* Firefox */
+.flatpickr-current-month .numInputWrapper input[type="number"].cur-year {
+    -moz-appearance: textfield !important;
+    appearance: textfield !important;
+}
+
+/* Дополнительно: прячем сам контейнер-обёртку стрелок, если он есть */
+.flatpickr-current-month .numInputWrapper span {
+    display: none !important;
+}
+
+.flatpickr-current-month .numInputWrapper span.arrowUp,
+.flatpickr-current-month .numInputWrapper span.arrowDown {
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+}
+
+
+
+/* ==================== КАСТОМНЫЙ ВЫБОР ВРЕМЕНИ (FLATPICKR) ==================== */
+.time-input-wrapper {
+    position: relative;
+    width: 100%;
+}
+
+.time-icon {
+    position: absolute;
+    right: 16px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--white);
+    pointer-events: auto;
+    cursor: pointer;
+    transition: var(--transition);
+    z-index: 2;
+}
+
+.time-input-wrapper:hover .time-icon,
+.time-input-wrapper:focus-within .time-icon {
+    color: var(--gray-400);
+}
+
+/* Стили для time picker (используем те же стили что и для календаря) */
+.flatpickr-calendar.hasTime {
+    background: rgba(28, 28, 30, 0.85) !important;
+    backdrop-filter: blur(20px) saturate(180%) !important;
+    -webkit-backdrop-filter: blur(20px) saturate(180%) !important;
+    border: 1px solid var(--glass-border) !important;
+    border-radius: 16px !important;
+    box-shadow: var(--glass-shadow-hover) !important;
+    color: var(--white) !important;
+    padding: 12px !important;
+    max-width: 200px !important;
+}
+
+/* Скрываем календарь, показываем только время */
+.flatpickr-calendar.hasTime.noCalendar {
+    width: 200px !important;
+    padding: 0 !important;
+     box-sizing: border-box;
+}
+
+/* Контейнер времени */
+.flatpickr-time {
+    background: transparent !important;
+    border: none !important;
+    height: 60px !important;
+    margin: 10px;
+}
+
+.flatpickr-time .flatpickr-am-pm,
+.flatpickr-time input.flatpickr-hour,
+.flatpickr-time input.flatpickr-minute {
+    background: transparent !important;
+    color: var(--white) !important;
+    font-size: 24px !important;
+    font-weight: 600 !important;
+    border: none !important;
+    text-align: center !important;
+    transition: var(--transition) !important;
+}
+
+.flatpickr-time .flatpickr-am-pm:hover,
+.flatpickr-time input.flatpickr-hour:hover,
+.flatpickr-time input.flatpickr-minute:hover {
+    background: rgba(255, 255, 255, 0.1) !important;
+    border-radius: 8px !important;
+}
+
+.flatpickr-time .flatpickr-am-pm:focus,
+.flatpickr-time input.flatpickr-hour:focus,
+.flatpickr-time input.flatpickr-minute:focus {
+    background: rgba(255, 255, 255, 0.15) !important;
+    outline: none !important;
+    box-shadow: 0 0 0 2px rgba(0, 113, 227, 0.3) !important;
+    border-radius: 8px !important;
+}
+
+/* Разделитель (двоеточие) */
+.flatpickr-time .flatpickr-time-separator {
+    color: var(--gray-400) !important;
+    font-size: 30px !important;
+    margin: auto;
+}
+
+/* Кнопки AM/PM (если нужно) */
+.flatpickr-time .flatpickr-am-pm {
+    font-size: 16px !important;
+    color: var(--gray-300) !important;
+}
+
+/* Убираем нативные стрелочки у полей времени */
+.flatpickr-time input.flatpickr-hour::-webkit-outer-spin-button,
+.flatpickr-time input.flatpickr-hour::-webkit-inner-spin-button,
+.flatpickr-time input.flatpickr-minute::-webkit-outer-spin-button,
+.flatpickr-time input.flatpickr-minute::-webkit-inner-spin-button {
+    -webkit-appearance: none !important;
+    appearance: none !important;
+    margin: 0 !important;
+}
+
+.flatpickr-time input.flatpickr-hour[type=number],
+.flatpickr-time input.flatpickr-minute[type=number] {
+    -moz-appearance: textfield !important;
+    appearance: textfield !important;
+}
+
+/* ==================== ПОДСКАЗКА ВНУТРИ TIME PICKER ==================== */
+.flatpickr-calendar.hasTime.noCalendar .flatpickr-time {
+    position: relative;
+}
+
+.flatpickr-calendar.hasTime.noCalendar::after {
+    content: 'Переключение колесиком мыши' !important; 
+    position: absolute;
+    bottom: 20px;
+    right: 50%;
+    transform: translateX(-50%);
+    text-align: center;
+    font-size: 10px;
+    color: var(--gray-400);
+    opacity: 0.6;
+    pointer-events: none;
+    white-space: nowrap;
+    letter-spacing: 0.3px;
+    border: none !important; 
+}
+
+.flatpickr-calendar.hasTime.noCalendar:hover::after {
+    opacity: 1;
+    color: var(--gray-300);
+}
+

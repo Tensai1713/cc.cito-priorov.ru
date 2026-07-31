@@ -11,8 +11,14 @@ require_once __DIR__ . '/admin_auth.php';
     <link rel="shortcut icon" href="img/favicon.ico" type="image/x-icon">
     <link rel="icon" href="img/favicon.ico" type="image/x-icon">
     <title>Админ</title>
+    
+    <link rel="stylesheet" href="./flatpickr.min.css">
     <link rel="stylesheet" href="./style.css">
     <link rel="stylesheet" href="./admin.css">
+    
+    <script src="./flatpickr.min.js"></script>
+    <script src="./ru.js"></script>
+    
     <script defer src="./jquery.min.js"></script>
     <script defer src="./admin.js"></script>
 </head>
@@ -106,14 +112,25 @@ require_once __DIR__ . '/admin_auth.php';
                 <input class="new-entry__input required-field" type="text" name="fullNameApplicant" id="fullNameApplicant">
                 <div class="field-error" id="fullNameError">Это поле обязательно для заполнения</div>
             </div>
-            <div class="new-entry__column grid-item5">
-                <label>Время въезда</label>
-                <input class="new-entry__input" type="time" name="entryTime">
-            </div>
-            <div class="new-entry__column grid-item6">
-                <label>Время выезда</label>
-                <input class="new-entry__input" type="time" name="outTime">
-            </div>
+              <div class="new-entry__column grid-item5">
+                  <label>Время въезда</label>
+                  <div class="time-input-wrapper">
+                      <input class="new-entry__input custom-time-picker" type="text" name="entryTime" placeholder="ЧЧ:ММ" readonly>
+                      <svg class="time-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                          <path d="M12 8V12L15 15M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                      </svg>
+                  </div>
+              </div>
+
+              <div class="new-entry__column grid-item6">
+                  <label>Время выезда</label>
+                  <div class="time-input-wrapper">
+                      <input class="new-entry__input custom-time-picker" type="text" name="outTime" placeholder="ЧЧ:ММ" readonly>
+                      <svg class="time-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                          <path d="M12 8V12L15 15M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                      </svg>
+                  </div>
+              </div>
             <div class="new-entry__column new-entry__column-comment grid-item7">
                 <label class="comment-label">Комментарий</label>
                 <textarea class="new-entry__input new-entry__input-comment" style="resize: none;" name="comment"></textarea>
@@ -126,14 +143,26 @@ require_once __DIR__ . '/admin_auth.php';
                 <label>Годовая запись</label>
                 <input class="new-entry__input-checkbox" type="checkbox" name="yearRecord">
             </div>
-            <div class="new-entry__column grid-item9">
-                <label>Дата въезда /<br>начала работ</label>
-                <input class="new-entry__input" type="text" data-type="date-mask" name="entryDate" id="entryDate" placeholder="ДД.ММ.ГГГГ" maxlength="10">
-            </div>
-            <div class="new-entry__column grid-item10">
-                <label>Дата выезда /<br>окончания работ</label>
-                <input class="new-entry__input" type="text" data-type="date-mask" name="outDate" id="outDate" placeholder="ДД.ММ.ГГГГ" maxlength="10">
-            </div>
+
+              <div class="new-entry__column grid-item9">
+                  <label>Дата въезда</label>
+                  <div class="date-input-wrapper">
+                      <input class="new-entry__input custom-date-picker" type="text" name="entryDate" placeholder="ДД.ММ.ГГГГ" readonly>
+                      <svg class="calendar-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                          <path d="M8 7V3M16 7V3M7 11H17M5 21H19C20.1046 21 21 20.1046 21 19V8C21 6.89543 20.1046 6 19 6H5C3.89543 6 3 6.89543 3 8V19C3 20.1046 3.89543 21 5 21Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                      </svg>
+                  </div>
+              </div>
+              <div class="new-entry__column grid-item10">
+                  <label>Дата выезда</label>
+                  <div class="date-input-wrapper">
+                      <input class="new-entry__input custom-date-picker" type="text" name="outDate" placeholder="ДД.ММ.ГГГГ" readonly>
+                      <svg class="calendar-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                          <path d="M8 7V3M16 7V3M7 11H17M5 21H19C20.1046 21 21 20.1046 21 19V8C21 6.89543 20.1046 6 19 6H5C3.89543 6 3 6.89543 3 8V19C3 20.1046 3.89543 21 5 21Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                      </svg>
+                  </div>
+              </div>
+
             <button class="btn grid-item11" type="submit">Добавить</button>
             <button class="btn grid-item13" type="button" id="clearFormBtn">Очистить</button>
         </div>
@@ -165,7 +194,7 @@ require_once __DIR__ . '/admin_auth.php';
                     <svg class="date-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                         <path d="M8 7V3M16 7V3M7 11H17M5 21H19C20.1046 21 21 20.1046 21 19V8C21 6.89543 20.1046 6 19 6H5C3.89543 6 3 6.89543 3 8V19C3 20.1046 3.89543 21 5 21Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                     </svg>
-                    <input type="text" data-type="date-mask" id="dateFilter" class="search-date" placeholder="ДД.ММ.ГГГГ" maxlength="10">
+                    <div class="date-input-wrapper"><input type="text"  id="dateFilter" class="search-date custom-date-picker" placeholder="ДД.ММ.ГГГГ" ></div>
                 </div>
                 <button type="button" id="clearSearchBtn" class="btn btn-clear-search">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">

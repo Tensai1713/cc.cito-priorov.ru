@@ -80,7 +80,7 @@ $(document).ready(function() {
         const icons = { success: '✓', error: '✕', warning: '⚠', info: 'ℹ' };
         const toast = $(`<div class="toast ${type}"><div class="toast-icon">${icons[type] || icons.success}</div><div class="toast-message">${message}</div></div>`);
         $('#toastContainer').append(toast);
-        setTimeout(() => toast.fadeOut(300, function() { $(this).remove(); }), 3000);
+        setTimeout(() => toast.fadeOut(300, function() { $(this).remove(); }), 5000);
         if (notificationId) sessionStorage.setItem('notification_' + notificationId, 'true');
     }
 
@@ -662,4 +662,124 @@ $(document).ready(function() {
         this.value = newVal;
         this.setSelectionRange(newVal.length, newVal.length);
     });
+
+
+     // =========================================================================
+    // ИНИЦИАЛИЗАЦИЯ КАСТОМНОГО КАЛЕНДАРЯ (FLATPICKR)
+    // =========================================================================
+    if (typeof flatpickr === 'function') {
+        
+        // 1. Инициализация календаря дат
+        flatpickr(".custom-date-picker", {
+            dateFormat: "d.m.Y",
+            locale: "ru",
+            allowInput: true,
+            disableMobile: "true",
+            onOpen: function(selectedDates, dateStr, instance) {
+                const yearInput = instance.yearElements[0];
+                if (yearInput) {
+                    yearInput.type = 'text';
+                }
+            }
+        });
+
+        // 2. Инициализация выбора времени
+        flatpickr(".custom-time-picker", {
+            enableTime: true,
+            noCalendar: true,
+            dateFormat: "H:i",
+            time_24hr: true,
+            allowInput: true,
+            disableMobile: "true",
+            defaultHour: 9,
+            defaultMinute: 0,
+            onChange: function(selectedDates, dateStr, instance) {
+                // При любом изменении состояния Flatpickr записываем в главный инпут
+                if (instance.input && dateStr) {
+                    instance.input.value = dateStr;
+                }
+            }
+        });
+
+        // 3. Клик по иконке календаря
+        $(document).on('click', '.calendar-icon', function() {
+            const inputElement = $(this).prev('.custom-date-picker').get(0);
+            if (inputElement && inputElement._flatpickr) {
+                inputElement._flatpickr.open();
+            }
+        });
+
+        // 4. Клик по иконке времени
+        $(document).on('click', '.time-icon', function() {
+            const inputElement = $(this).prev('.custom-time-picker').get(0);
+            if (inputElement && inputElement._flatpickr) {
+                inputElement._flatpickr.open();
+            }
+        });
+
+        // =========================================================================
+        // 5. ПЕРЕКЛЮЧЕНИЕ ЦИФР КОЛЕСИКОМ МЫШИ (МАКСИМАЛЬНО НАДЕЖНАЯ ВЕРСИЯ)
+        // =========================================================================
+        document.addEventListener('wheel', function(e) {
+            if (e.target.classList.contains('flatpickr-hour') || e.target.classList.contains('flatpickr-minute')) {
+                e.preventDefault(); 
+                
+                const currentValue = parseInt(e.target.value) || 0;
+                const isHour = e.target.classList.contains('flatpickr-hour');
+                const max = isHour ? 23 : 59;
+                const delta = e.deltaY < 0 ? 1 : -1;
+                
+                let newValue = currentValue + delta;
+                if (newValue > max) newValue = 0;
+                if (newValue < 0) newValue = max;
+                
+                // 1. Обновляем визуально поле в календаре
+                e.target.value = newValue.toString().padStart(2, '0');
+                
+                // 2. Находим ОТКРЫТЫЙ экземпляр flatpickr (универсальный способ)
+                let fp = null;
+                document.querySelectorAll('.custom-time-picker').forEach(input => {
+                    if (input._flatpickr && input._flatpickr.isOpen) {
+                        fp = input._flatpickr;
+                    }
+                });
+
+                if (fp && fp.hourElement && fp.minuteElement) {
+                    // Собираем время напрямую из полей календаря
+                    const h = parseInt(fp.hourElement.value) || 0;
+                    const m = parseInt(fp.minuteElement.value) || 0;
+                    
+                    // Создаем дату (берем текущую выбранную или сегодня)
+                    const d = fp.selectedDates[0] || new Date();
+                    d.setHours(h, m, 0, 0);
+                    
+                    // Обновляем состояние flatpickr (true = вызвать onChange)
+                    fp.setDate(d, true);
+                }
+            }
+        }, { passive: false });
+
+        // 6. ЗАПАСНОЙ ВАРИАНТ: запись при потере фокуса (клик вне календаря)
+        $(document).on('blur', '.custom-time-picker', function() {
+            const input = this;
+            const fp = input._flatpickr;
+            
+            if (fp) {
+                // Если есть корректные выбранные даты, используем их
+                if (fp.selectedDates && fp.selectedDates.length > 0) {
+                    input.value = fp.formatDate(fp.selectedDates[0], "H:i");
+                } 
+                // Иначе берем напрямую из полей календаря (абсолютная защита от сброса)
+                else if (fp.hourElement && fp.minuteElement) {
+                    const h = fp.hourElement.value.padStart(2, '0');
+                    const m = fp.minuteElement.value.padStart(2, '0');
+                    input.value = `${h}:${m}`;
+                }
+                
+                $(input).trigger('change');
+            }
+        });
+    }
+
+
 });

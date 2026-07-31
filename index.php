@@ -65,14 +65,20 @@ if (!$is_logged_in) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="<?= htmlspecialchars($_SESSION['csrf_token']) ?>">
-    <meta name="is-authorized" content="false">
+    <meta name="is-authorized" content="true">
     
-    <title>Вход в систему</title>
+    <title>Заявка</title>
     <link rel="shortcut icon" href="img/favicon.ico" type="image/x-icon">
     <link rel="icon" href="img/favicon.ico" type="image/x-icon">
+    
+    <link rel="stylesheet" href="./flatpickr.min.css">
     <link rel="stylesheet" href="./style.css">
     
+    <script src="./flatpickr.min.js"></script>
+    <script src="./ru.js"></script>
+    
     <script defer src="./jquery.min.js"></script>
+    <script defer src="./script.js"></script>
     <script defer src="./index.js"></script>
 </head>
 <body>
@@ -195,11 +201,16 @@ if (!$is_logged_in) {
     <title>Заявка</title>
     <link rel="shortcut icon" href="img/favicon.ico" type="image/x-icon">
     <link rel="icon" href="img/favicon.ico" type="image/x-icon">
+    
+    <link rel="stylesheet" href="./flatpickr.min.css">
     <link rel="stylesheet" href="./style.css">
     
+    <script src="./flatpickr.min.js"></script>
+    <script src="./ru.js"></script>
+    
     <script defer src="./jquery.min.js"></script>
-    <script defer src="./script.js"></script> <!-- Основной JS для админки/заявок -->
-    <script defer src="./index.js"></script>  <!-- JS для таймера неактивности -->
+    <script defer src="./script.js"></script>
+    <script defer src="./index.js"></script>
     
     <style>
         html, body {
@@ -270,11 +281,44 @@ if (!$is_logged_in) {
                     <input class="new-entry__input" type="text" name="stateNumber" placeholder="А123ТВ777" data-type="plate-normalize" maxlength="15">
                 </div>
                 <div class="new-entry__column grid-item3"><label>Водитель</label><input class="new-entry__input" type="text" name="driverLastName"></div>
-                <div class="new-entry__column grid-item5"><label>Время въезда</label><input class="new-entry__input" type="time" name="entryTime"></div>
-                <div class="new-entry__column grid-item6"><label>Время выезда</label><input class="new-entry__input" type="time" name="outTime"></div>
+                <div class="new-entry__column grid-item5">
+                    <label>Время въезда</label>
+                    <div class="time-input-wrapper">
+                        <input class="new-entry__input custom-time-picker" type="text" name="entryTime" placeholder="ЧЧ:ММ" readonly>
+                        <svg class="time-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M12 8V12L15 15M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                    </div>
+                </div>
+
+                <div class="new-entry__column grid-item6">
+                    <label>Время выезда</label>
+                    <div class="time-input-wrapper">
+                        <input class="new-entry__input custom-time-picker" type="text" name="outTime" placeholder="ЧЧ:ММ" readonly>
+                        <svg class="time-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M12 8V12L15 15M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                    </div>
+                </div>
                 <div class="new-entry__column new-entry__column-comment grid-item7"><label>Комментарий</label><textarea class="new-entry__input new-entry__input-comment" name="comment"></textarea></div>
-                <div class="new-entry__column grid-item9"><label>Дата въезда</label><input class="new-entry__input" type="text" data-type="date-mask" name="entryDate" placeholder="ДД.ММ.ГГГГ" maxlength="10"></div>
-                <div class="new-entry__column grid-item10"><label>Дата выезда</label><input class="new-entry__input" type="text" data-type="date-mask" name="outDate" placeholder="ДД.ММ.ГГГГ" maxlength="10"></div>
+                              <div class="new-entry__column grid-item9">
+                  <label>Дата въезда</label>
+                  <div class="date-input-wrapper">
+                      <input class="new-entry__input custom-date-picker" type="text" name="entryDate" placeholder="ДД.ММ.ГГГГ" readonly>
+                      <svg class="calendar-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                          <path d="M8 7V3M16 7V3M7 11H17M5 21H19C20.1046 21 21 20.1046 21 19V8C21 6.89543 20.1046 6 19 6H5C3.89543 6 3 6.89543 3 8V19C3 20.1046 3.89543 21 5 21Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                      </svg>
+                  </div>
+              </div>
+              <div class="new-entry__column grid-item10">
+                  <label>Дата выезда</label>
+                  <div class="date-input-wrapper">
+                      <input class="new-entry__input custom-date-picker" type="text" name="outDate" placeholder="ДД.ММ.ГГГГ" readonly>
+                      <svg class="calendar-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                          <path d="M8 7V3M16 7V3M7 11H17M5 21H19C20.1046 21 21 20.1046 21 19V8C21 6.89543 20.1046 6 19 6H5C3.89543 6 3 6.89543 3 8V19C3 20.1046 3.89543 21 5 21Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                      </svg>
+                  </div>
+              </div>
                 <button class="btn grid-item11" type="submit">Отправить</button>
                 <button class="btn grid-item13" type="button" id="clearFormBtn">Очистить</button>
             </div>
