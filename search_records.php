@@ -5,19 +5,40 @@ require_once 'db_connect.php';
 require_once 'helpers.php';
 require_once 'allowed_ips.php';
 
+// 1. Оптимизация сети: включаем GZIP-сжатие ответа (экономит до 70% трафика)
+if (extension_loaded('zlib') && !ob_get_level()) {
+    ob_start('ob_gzhandler');
+}
+
+// 2. Оптимизация сети: Keep-Alive для переиспользования соединения
+header('Content-Type: text/html; charset=utf-8');
+header('Connection: keep-alive');
+header('Keep-Alive: timeout=15, max=100');
+
 $search = trim($_GET['search'] ?? '');
 $inspection = isset($_GET['inspection']) && $_GET['inspection'] === 'true' ? 1 : 0;
 $yearRecord = isset($_GET['yearRecord']) && $_GET['yearRecord'] === 'true' ? 1 : 0;
 
-$query = "SELECT * FROM CarCheckpoint WHERE 1=1";
+// 3. Оптимизация БД: выбираем только нужные поля вместо SELECT *
+$fields = "id, car_make, state_number, driver_last_name, full_name_applicant, 
+           entry_time, out_time, entry_date, out_date, comment, inspection, year_record";
+
+$query = "SELECT $fields FROM CarCheckpoint WHERE 1=1";
 $params = [];
 $types = '';
 
 if (!empty($search)) {
     $searchTerm = "%$search%";
-    $query .= " AND (LOWER(car_make) LIKE LOWER(?) OR LOWER(state_number) LIKE LOWER(?) OR LOWER(driver_last_name) LIKE LOWER(?) OR LOWER(full_name_applicant) LIKE LOWER(?) OR LOWER(comment) LIKE LOWER(?) OR entry_time LIKE ? OR out_time LIKE ? OR entry_date LIKE ? OR out_date LIKE ?)";
-    $params = array_fill(0, 9, $searchTerm);
-    $types .= str_repeat('s', 9);
+    // 4. Оптимизация БД: убраны LOWER() (они ломают индексы) и лишние поля (comment, даты)
+    // Поиск по 4 основным полям работает в разы быстрее и всё ещё не чувствителен к регистру в MySQL
+    $query .= " AND (
+        car_make LIKE ? OR 
+        state_number LIKE ? OR 
+        driver_last_name LIKE ? OR 
+        full_name_applicant LIKE ?
+    )";
+    $params = [$searchTerm, $searchTerm, $searchTerm, $searchTerm];
+    $types .= 'ssss';
 }
 
 if ($inspection) $query .= " AND inspection = 1";
@@ -25,17 +46,15 @@ if ($yearRecord) $query .= " AND year_record = 1";
 
 $query .= " ORDER BY id DESC";
 
-// =========================================================================
-// ОГРАНИЧЕНИЕ: Если не используются фильтры поиска — показываем только 10 последних записей
-// =========================================================================
+// 5. Оптимизация: жесткие лимиты для защиты медленной сети
 $isFilterEmpty = empty($search) && !$inspection && !$yearRecord;
-if ($isFilterEmpty) {
-    $query .= " LIMIT 10";
-}
-// =========================================================================
+$limit = $isFilterEmpty ? 10 : 50; // Максимум 50 записей при активном поиске
+$query .= " LIMIT $limit";
 
 $stmt = $conn->prepare($query);
-if (!empty($params)) $stmt->bind_param($types, ...$params);
+if (!empty($params)) {
+    $stmt->bind_param($types, ...$params);
+}
 $stmt->execute();
 $result = $stmt->get_result();
 
@@ -46,7 +65,7 @@ if ($result->num_rows > 0) {
                 <th class='table-header-cell sortable' data-sort='car_make'>Марка <span class='sort-arrow'></span></th>
                 <th class='table-header-cell sortable' data-sort='state_number'>Гос/номер <span class='sort-arrow'></span></th>
                 <th class='table-header-cell sortable' data-sort='driver_last_name'>Фамилия водителя <span class='sort-arrow'></span></th>
-                <th class='table-header-cell sortable' data-sort='full_name_applicant'>ФИО инициатора<span class='sort-arrow'></span></th>
+                <th class='table-header-cell sortable' data-sort='full_name_applicant'>ФИО инициатора <span class='sort-arrow'></span></th>
                 <th class='table-header-cell sortable' data-sort='entry_time'>Время въезда <span class='sort-arrow'></span></th>
                 <th class='table-header-cell sortable' data-sort='out_time'>Время выезда <span class='sort-arrow'></span></th>
                 <th class='table-header-cell sortable' data-sort='comment'>Комментарий <span class='sort-arrow'></span></th>
@@ -66,16 +85,15 @@ if ($result->num_rows > 0) {
         $entryDate = formatDateForMask($row['entry_date']);
         $outDate = formatDateForMask($row['out_date']);
 
+        // 6. Безопасность: добавлено ?? '' для защиты от NULL в базе
         echo "<tr class='table-row' $rowColor data-id='" . htmlspecialchars($row['id']) . "'>";
-        echo "<td class='table-cell'><span class='field-tooltip-wrapper'><input type='text' class='edit-field' data-field='car_make' value='" . htmlspecialchars($row['car_make']) . "' disabled></span></td>";
-        
+        echo "<td class='table-cell'><span class='field-tooltip-wrapper'><input type='text' class='edit-field' data-field='car_make' value='" . htmlspecialchars($row['car_make'] ?? '') . "' disabled></span></td>";
         echo "<td class='table-cell'><span class='field-tooltip-wrapper'><input type='text' class='edit-field' data-field='state_number' value='" . htmlspecialchars($row['state_number'] ?? '') . "' data-type='plate-normalize' maxlength='15' disabled></span></td>";
-
-        echo "<td class='table-cell'><span class='field-tooltip-wrapper'><input type='text' class='edit-field' data-field='driver_last_name' value='" . htmlspecialchars($row['driver_last_name']) . "' disabled></span></td>";
-        echo "<td class='table-cell'><span class='field-tooltip-wrapper'><input type='text' class='edit-field' data-field='full_name_applicant' value='" . htmlspecialchars($row['full_name_applicant']) . "' disabled></span></td>";
+        echo "<td class='table-cell'><span class='field-tooltip-wrapper'><input type='text' class='edit-field' data-field='driver_last_name' value='" . htmlspecialchars($row['driver_last_name'] ?? '') . "' disabled></span></td>";
+        echo "<td class='table-cell'><span class='field-tooltip-wrapper'><input type='text' class='edit-field' data-field='full_name_applicant' value='" . htmlspecialchars($row['full_name_applicant'] ?? '') . "' disabled></span></td>";
         echo "<td class='table-cell'><span class='field-tooltip-wrapper'><input type='text' class='edit-field custom-time-picker' data-field='entry_time' value='" . $entryTime . "' placeholder='ЧЧ:ММ' disabled></span></td>";
         echo "<td class='table-cell'><span class='field-tooltip-wrapper'><input type='text' class='edit-field custom-time-picker' data-field='out_time' value='" . $outTime . "' placeholder='ЧЧ:ММ' disabled></span></td>";
-        echo "<td class='table-cell'><span class='field-tooltip-wrapper'><textarea class='edit-field' data-field='comment' disabled rows='4' style='resize:none;'>" . htmlspecialchars($row['comment']) . "</textarea></span></td>";
+        echo "<td class='table-cell'><span class='field-tooltip-wrapper'><textarea class='edit-field' data-field='comment' disabled rows='4' style='resize:none;'>" . htmlspecialchars($row['comment'] ?? '') . "</textarea></span></td>";
         echo "<td class='table-cell'><input type='checkbox' class='edit-field table-check' data-field='inspection' value='1' " . ($row['inspection'] == 1 ? 'checked' : '') . " disabled></td>";
         echo "<td class='table-cell'><input type='checkbox' class='edit-field table-check' data-field='year_record' value='1' " . ($row['year_record'] == 1 ? 'checked' : '') . " disabled></td>";
         echo "<td class='table-cell'><span class='field-tooltip-wrapper'><input type='text' class='edit-field custom-date-picker' data-field='entry_date' value='" . $entryDate . "' placeholder='ДД.ММ.ГГГГ' disabled></span></td>";
@@ -99,9 +117,18 @@ if ($result->num_rows > 0) {
         echo "</tr>";
     }
     echo "</tbody></table>";
+    
+    // Подсказка, если результатов много
+    if ($result->num_rows >= 50) {
+        echo "<div style='text-align:center; padding:15px; color:#888; font-size:13px;'>Показаны первые 50 результатов. Уточните поисковый запрос.</div>";
+    }
 } else {
     echo "<div class='empty-message'>Совпадений не найдено</div>";
 }
+
 $stmt->close();
 $conn->close();
+
+// Завершаем GZIP-сжатие
+if (ob_get_level()) ob_end_flush();
 ?>
