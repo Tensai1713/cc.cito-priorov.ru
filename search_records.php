@@ -8,7 +8,6 @@ require_once 'allowed_ips.php';
 $search = trim($_GET['search'] ?? '');
 $inspection = isset($_GET['inspection']) && $_GET['inspection'] === 'true' ? 1 : 0;
 $yearRecord = isset($_GET['yearRecord']) && $_GET['yearRecord'] === 'true' ? 1 : 0;
-$dateFilter = trim($_GET['dateFilter'] ?? '');
 
 $query = "SELECT * FROM CarCheckpoint WHERE 1=1";
 $params = [];
@@ -21,17 +20,20 @@ if (!empty($search)) {
     $types .= str_repeat('s', 9);
 }
 
-if (!empty($dateFilter)) {
-    $query .= " AND (entry_date = ? OR out_date = ?)";
-    $params[] = $dateFilter;
-    $params[] = $dateFilter;
-    $types .= 'ss';
-}
-
 if ($inspection) $query .= " AND inspection = 1";
 if ($yearRecord) $query .= " AND year_record = 1";
 
 $query .= " ORDER BY id DESC";
+
+// =========================================================================
+// ОГРАНИЧЕНИЕ: Если не используются фильтры поиска — показываем только 10 последних записей
+// =========================================================================
+$isFilterEmpty = empty($search) && !$inspection && !$yearRecord;
+if ($isFilterEmpty) {
+    $query .= " LIMIT 10";
+}
+// =========================================================================
+
 $stmt = $conn->prepare($query);
 if (!empty($params)) $stmt->bind_param($types, ...$params);
 $stmt->execute();
@@ -67,18 +69,18 @@ if ($result->num_rows > 0) {
         echo "<tr class='table-row' $rowColor data-id='" . htmlspecialchars($row['id']) . "'>";
         echo "<td class='table-cell'><span class='field-tooltip-wrapper'><input type='text' class='edit-field' data-field='car_make' value='" . htmlspecialchars($row['car_make']) . "' disabled></span></td>";
         
-        // ИСПРАВЛЕНО: Одно поле вместо двух
         echo "<td class='table-cell'><span class='field-tooltip-wrapper'><input type='text' class='edit-field' data-field='state_number' value='" . htmlspecialchars($row['state_number'] ?? '') . "' data-type='plate-normalize' maxlength='15' disabled></span></td>";
 
         echo "<td class='table-cell'><span class='field-tooltip-wrapper'><input type='text' class='edit-field' data-field='driver_last_name' value='" . htmlspecialchars($row['driver_last_name']) . "' disabled></span></td>";
         echo "<td class='table-cell'><span class='field-tooltip-wrapper'><input type='text' class='edit-field' data-field='full_name_applicant' value='" . htmlspecialchars($row['full_name_applicant']) . "' disabled></span></td>";
-        echo "<td class='table-cell'><span class='field-tooltip-wrapper'><input type='text' class='edit-field custom-time-picker' data-field='entry_time' value='" . $entryTime . "' placeholder='ЧЧ:ММ'  disabled></span></td>";
-        echo "<td class='table-cell'><span class='field-tooltip-wrapper'><input type='text' class='edit-field custom-time-picker' data-field='out_time' value='" . $outTime . "' placeholder='ЧЧ:ММ'  disabled></span></td>";
+        echo "<td class='table-cell'><span class='field-tooltip-wrapper'><input type='text' class='edit-field custom-time-picker' data-field='entry_time' value='" . $entryTime . "' placeholder='ЧЧ:ММ' disabled></span></td>";
+        echo "<td class='table-cell'><span class='field-tooltip-wrapper'><input type='text' class='edit-field custom-time-picker' data-field='out_time' value='" . $outTime . "' placeholder='ЧЧ:ММ' disabled></span></td>";
         echo "<td class='table-cell'><span class='field-tooltip-wrapper'><textarea class='edit-field' data-field='comment' disabled rows='4' style='resize:none;'>" . htmlspecialchars($row['comment']) . "</textarea></span></td>";
         echo "<td class='table-cell'><input type='checkbox' class='edit-field table-check' data-field='inspection' value='1' " . ($row['inspection'] == 1 ? 'checked' : '') . " disabled></td>";
         echo "<td class='table-cell'><input type='checkbox' class='edit-field table-check' data-field='year_record' value='1' " . ($row['year_record'] == 1 ? 'checked' : '') . " disabled></td>";
-        echo "<td class='table-cell'><span class='field-tooltip-wrapper'><input type='text' class='edit-field custom-date-picker' data-field='entry_date' value='" . $entryDate . "' placeholder='ДД.ММ.ГГГГ'  disabled></span></td>";
-        echo "<td class='table-cell'><span class='field-tooltip-wrapper'><input type='text' class='edit-field custom-date-picker' data-field='out_date' value='" . $outDate . "' placeholder='ДД.ММ.ГГГГ'  disabled></span></td>";        
+        echo "<td class='table-cell'><span class='field-tooltip-wrapper'><input type='text' class='edit-field custom-date-picker' data-field='entry_date' value='" . $entryDate . "' placeholder='ДД.ММ.ГГГГ' disabled></span></td>";
+        echo "<td class='table-cell'><span class='field-tooltip-wrapper'><input type='text' class='edit-field custom-date-picker' data-field='out_date' value='" . $outDate . "' placeholder='ДД.ММ.ГГГГ' disabled></span></td>";
+        
         $deleteBtn = canDelete() ? "<button class='delete-btn table-btn' data-id='" . htmlspecialchars($row['id']) . "'>Удалить</button>" : "";
         
         echo "<td class='table-cell actions-cell'>";

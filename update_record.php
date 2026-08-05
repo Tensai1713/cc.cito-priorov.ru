@@ -20,31 +20,26 @@ if (!function_exists('get_real_ip')) {
 if (!function_exists('convertDateForDB')) {
     function convertDateForDB($date) {
         if (empty($date)) return null;
-        
-        // Если уже в формате YYYY-MM-DD
         if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) {
             return $date;
         }
-        
-        // Если в формате DD.MM.YYYY
         if (preg_match('/^(\d{2})\.(\d{2})\.(\d{4})$/', $date, $matches)) {
             return $matches[3] . '-' . $matches[2] . '-' . $matches[1];
         }
-        
         return null;
     }
 }
 
 if ($_SERVER["REQUEST_METHOD"] !== "POST") {
     http_response_code(405);
-    echo json_encode(['success' => false, 'message' => 'Метод не поддерживается']);
+    echo json_encode(['success' => false, 'message' => 'Метод не поддерживается'], JSON_UNESCAPED_UNICODE);
     exit;
 }
 
 $id = intval($_POST['id'] ?? 0);
 if ($id <= 0) {
     http_response_code(400);
-    echo json_encode(['success' => false, 'message' => 'Неверный ID записи']);
+    echo json_encode(['success' => false, 'message' => 'Неверный ID записи'], JSON_UNESCAPED_UNICODE);
     exit;
 }
 
@@ -71,7 +66,7 @@ try {
     if (empty($car_make) && empty($state_number) && empty($driver_last_name) && 
         empty($full_name_applicant) && empty($comment) && empty($entry_date_raw) && empty($out_date_raw)) {
         http_response_code(400);
-        echo json_encode(['success' => false, 'message' => 'Пожалуйста, заполните хотя бы одно поле!']);
+        echo json_encode(['success' => false, 'message' => 'Пожалуйста, заполните хотя бы одно поле!'], JSON_UNESCAPED_UNICODE);
         exit;
     }
 
@@ -82,7 +77,6 @@ try {
     $full_name_applicant = $full_name_applicant !== '' ? $full_name_applicant : null;
     $entry_time = $entry_time !== '' ? $entry_time : null;
     $out_time = $out_time !== '' ? $out_time : null;
-    // ✅ Даты уже сконвертированы или null
     $comment = $comment !== '' ? $comment : null;
 
     $stmt = $conn->prepare("UPDATE CarCheckpoint SET car_make=?, state_number=?, driver_last_name=?, full_name_applicant=?, entry_time=?, out_time=?, entry_date=?, out_date=?, comment=?, inspection=?, year_record=? WHERE id=?");
@@ -113,7 +107,7 @@ try {
             error_log('Ошибка логирования update: ' . $log_error->getMessage());
         }
 
-        echo json_encode(['success' => true, 'message' => 'Запись успешно обновлена!']);
+        echo json_encode(['success' => true, 'message' => 'Запись успешно обновлена!'], JSON_UNESCAPED_UNICODE);
     } else {
         throw new Exception($stmt->error);
     }
@@ -121,7 +115,7 @@ try {
 } catch (Exception $e) {
     error_log('Ошибка update_record.php: ' . $e->getMessage());
     http_response_code(500);
-    echo json_encode(['success' => false, 'message' => 'Ошибка при обновлении: ' . $e->getMessage()]);
+    echo json_encode(['success' => false, 'message' => 'Ошибка при обновлении: ' . $e->getMessage()], JSON_UNESCAPED_UNICODE);
 } finally {
     if (isset($conn) && $conn instanceof mysqli) {
         $conn->close();

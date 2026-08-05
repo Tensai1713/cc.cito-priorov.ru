@@ -80,8 +80,16 @@ require_once __DIR__ . '/admin_auth.php';
 
  <div class="logo-wrap">
   <!-- <img class="logo" src="./img/logo.png" alt=""> -->
+    <button id="multipleCarsBtn" class="btn" style="display: none;">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 5v14M5 12h14"/>
+        </svg>
+        Несколько машин
+    </button>
   <button id="newEntryBtnBack" class="btn new-entry__btn-back" style="display: none;">Назад</button>
  </div>
+
+ 
 
 <div class="choice">
     <button id="entryBtn" class="record_btn btn">
@@ -198,12 +206,12 @@ require_once __DIR__ . '/admin_auth.php';
                         <span>Годовая запись</span>
                     </label>
                 </div>
-                <div class="search-date-wrapper">
+                <!-- <div class="search-date-wrapper">
                     <svg class="date-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                         <path d="M8 7V3M16 7V3M7 11H17M5 21H19C20.1046 21 21 20.1046 21 19V8C21 6.89543 20.1046 6 19 6H5C3.89543 6 3 6.89543 3 8V19C3 20.1046 3.89543 21 5 21Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                     </svg>
                     <div class="date-input-wrapper"><input type="text"  id="dateFilter" class="search-date custom-date-picker" placeholder="ДД.ММ.ГГГГ" ></div>
-                </div>
+                </div> -->
                 <button type="button" id="clearSearchBtn" class="btn btn-clear-search">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                         <path d="M18 6L6 18M6 6L18 18" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -234,6 +242,24 @@ require_once __DIR__ . '/admin_auth.php';
     <div class="screen-loader-content">
         <div class="loading-spinner"></div>
         <div class="loader-text">Загрузка...</div>
+    </div>
+</div>
+
+
+<div class="multiple-cars-modal" id="multipleCarsModal" style="display: none;">
+    <div class="multiple-cars-overlay" id="multipleCarsOverlay"></div>
+    <div class="multiple-cars-content">
+        <button class="btn-close-modal" id="closeMultipleCarsBtn" style="position: absolute; top: 15px; right: 15px; background: none; border: none; color: #aaa; font-size: 24px; cursor: pointer;">✕</button>
+        
+        <h2 class="multiple-cars-title" style="color: #fff; font-size: 20px; font-weight: 600; margin-bottom: 20px; text-align: center;">Быстрый ввод: несколько машин</h2>
+        
+        <div class="multiple-cars-list" id="multipleCarsList" style="display: flex; flex-direction: column; gap: 12px; margin-bottom: 20px; max-height: 40vh; overflow-y: auto; padding-right: 5px;">
+        </div>
+
+        <div class="multiple-cars-actions" style="display: flex; gap: 12px; justify-content: flex-end;">
+            <button class="btn" id="cancelMultipleCarsBtn" style="background: rgba(255,255,255,0.1); color: #fff; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer;">Отмена</button>
+            <button class="btn" id="submitMultipleCarsBtn" style="background: #0071e3; color: #fff; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: 500;">Добавить все</button>
+        </div>
     </div>
 </div>
 

@@ -39,7 +39,7 @@ if (!function_exists('convertDateForDB')) {
 
 if ($_SERVER["REQUEST_METHOD"] !== "POST") {
     http_response_code(405);
-    echo json_encode(['success' => false, 'message' => 'Метод не поддерживается']);
+    echo json_encode(['success' => false, 'message' => 'Метод не поддерживается'], JSON_UNESCAPED_UNICODE);
     exit;
 }
 
@@ -55,11 +55,7 @@ try {
     $comment = trim($_POST['comment'] ?? '');
 
     // 2. УМНАЯ ЛОГИКА ФИО:
-    // Сначала пробуем взять то, что ввел админ в форму
     $full_name_applicant = trim($_POST['fullNameApplicant'] ?? '');
-    
-    // Если поле пустое (значит, заявку отправил пользователь с index.php, где этого поля нет)
-    // берем данные из сессии авторизованного пользователя
     if (empty($full_name_applicant)) {
         $full_name_applicant = trim($_SESSION['auth_full_name'] ?? '');
         if (empty($full_name_applicant)) {
@@ -79,7 +75,7 @@ try {
     if (empty($car_make) && empty($state_number) && empty($driver_last_name) && 
         empty($full_name_applicant) && empty($comment) && empty($entry_date_raw) && empty($out_date_raw)) {
         http_response_code(400);
-        echo json_encode(['success' => false, 'message' => 'Пожалуйста, заполните хотя бы одно поле!']);
+        echo json_encode(['success' => false, 'message' => 'Пожалуйста, заполните хотя бы одно поле!'], JSON_UNESCAPED_UNICODE);
         exit;
     }
 
@@ -122,7 +118,7 @@ try {
             error_log('Ошибка логирования insert: ' . $log_error->getMessage());
         }
 
-        echo json_encode(['success' => true, 'message' => 'Новая запись успешно добавлена!']);
+        echo json_encode(['success' => true, 'message' => 'Новая запись успешно добавлена!'], JSON_UNESCAPED_UNICODE);
     } else {
         throw new Exception($stmt->error);
     }
@@ -130,7 +126,7 @@ try {
 } catch (Exception $e) {
     error_log('Ошибка record.php: ' . $e->getMessage());
     http_response_code(500);
-    echo json_encode(['success' => false, 'message' => 'Ошибка при сохранении: ' . $e->getMessage()]);
+    echo json_encode(['success' => false, 'message' => 'Ошибка при сохранении: ' . $e->getMessage()], JSON_UNESCAPED_UNICODE);
 } finally {
     if (isset($conn) && $conn instanceof mysqli) {
         $conn->close();

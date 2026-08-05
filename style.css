@@ -81,6 +81,7 @@ body::before {
   display: flex;
   justify-content: flex-end;
   padding: 20px;
+  gap: 20px;
 }
 
 .logo {
@@ -1029,6 +1030,7 @@ textarea.edit-field {
     padding: 20px 40px;
     max-width: 100%;
     margin: 0 auto;
+    min-width: 700px;
 }
 
 .search-container {
@@ -1084,6 +1086,7 @@ textarea.edit-field {
     gap: 32px;
     flex-wrap: wrap;
     align-items: center;
+    justify-content: space-between;
 }
 
 .search-checkboxes {
@@ -2455,4 +2458,208 @@ input[type="date"], input[type="time"] { color-scheme: dark; }
 .flatpickr-calendar.time-picker-in-table.hasTime.noCalendar::after,
 .flatpickr-calendar.hasTime.noCalendar.time-picker-in-table::after {
     display: none;
+}
+
+
+
+/* ==================== МОДАЛКА НЕСКОЛЬКИХ МАШИН ==================== */
+.multiple-cars-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.multiple-cars-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+}
+
+.multiple-cars-content {
+    position: relative;
+    background: rgba(28, 28, 30, 0.95);
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    border: 1px solid var(--glass-border, rgba(255, 255, 255, 0.1));
+    border-radius: 20px;
+    padding: 30px;
+    max-width: 500px;
+    width: 90%;
+    max-height: 80vh;
+    overflow-y: auto;
+    box-shadow: var(--glass-shadow-hover, 0 20px 60px rgba(0, 0, 0, 0.5));
+}
+
+.multiple-cars-title {
+    color: var(--white, #fff);
+    font-size: 22px;
+    font-weight: 600;
+    margin-bottom: 20px;
+    text-align: center;
+}
+
+.multiple-cars-fio-field {
+    margin-bottom: 20px;
+}
+
+.multiple-cars-fio-field label {
+    display: block;
+    color: var(--gray-300, #aaa);
+    font-size: 14px;
+    margin-bottom: 8px;
+}
+
+.multiple-cars-fio-field .required {
+    color: var(--warning, #ffcc00);
+}
+
+.multiple-cars-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-bottom: 20px;
+    max-height: 40vh;
+    overflow-y: auto;
+    padding-right: 5px;
+}
+
+.multiple-car-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    animation: slideInRow 0.3s ease-out;
+}
+
+@keyframes slideInRow {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.multiple-car-row .row-number {
+    color: var(--gray-400, #666);
+    font-size: 14px;
+    font-weight: 600;
+    min-width: 24px;
+    text-align: center;
+}
+
+.multiple-car-row .edit-field {
+    flex: 1;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--glass-border, rgba(255, 255, 255, 0.1));
+    border-radius: 10px;
+    padding: 10px 14px;
+    color: var(--white, #fff);
+    font-size: 14px;
+    transition: var(--transition, all 0.2s);
+}
+
+.multiple-car-row .edit-field:focus {
+    border-color: var(--primary, #0071e3);
+    background: rgba(255, 255, 255, 0.08);
+    outline: none;
+}
+
+.multiple-car-row .edit-field::placeholder {
+    color: var(--gray-500, #555);
+}
+
+.multiple-car-row .remove-row-btn {
+    background: rgba(255, 59, 48, 0.15);
+    border: none;
+    border-radius: 8px;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: var(--transition, all 0.2s);
+    flex-shrink: 0;
+}
+
+.multiple-car-row .remove-row-btn:hover {
+    background: rgba(255, 59, 48, 0.3);
+}
+
+.multiple-car-row .remove-row-btn svg {
+    width: 16px;
+    height: 16px;
+    stroke: #ff3b30;
+}
+
+.multiple-cars-actions {
+    display: flex;
+    gap: 12px;
+    justify-content: flex-end;
+}
+
+.multiple-cars-actions .btn {
+    padding: 10px 20px;
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: var(--transition, all 0.2s);
+}
+
+.multiple-cars-actions .btn-cancel {
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--white, #fff);
+    border: none;
+}
+
+.multiple-cars-actions .btn-cancel:hover {
+    background: rgba(255, 255, 255, 0.15);
+}
+
+.multiple-cars-actions .btn-confirm {
+    background: var(--primary, #0071e3);
+    color: var(--white, #fff);
+    border: none;
+}
+
+.multiple-cars-actions .btn-confirm:hover {
+    background: #0077ED;
+}
+
+.multiple-cars-actions .btn-confirm:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Скроллбар для списка */
+.multiple-cars-list::-webkit-scrollbar {
+    width: 6px;
+}
+
+.multiple-cars-list::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 3px;
+}
+
+.multiple-cars-list::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 3px;
+}
+
+.multiple-cars-list::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.3);
 }

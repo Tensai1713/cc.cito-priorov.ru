@@ -97,6 +97,9 @@ $(document).ready(function() {
     }
     // ============================================
 
+
+
+
     function refreshTableUI() {
         $('.table-row:not(.editing) .edit-field[placeholder]').each(function() {
             const $field = $(this);
@@ -263,7 +266,7 @@ $(document).ready(function() {
         if (loader.length) { loader.addClass('fade-out'); setTimeout(finish, 300); } else { finish(); }
     }
     function performSearch() {
-        ajaxWithLoader({ type: "GET", url: "search_records.php", cache: false, data: { search: $('#searchInput').val().trim(), inspection: $('#inspectionFilter').is(':checked'), yearRecord: $('#yearRecordFilter').is(':checked'), dateFilter: $('#dateFilter').val() } }).done(function(response) {
+        ajaxWithLoader({ type: "GET", url: "search_records.php", cache: false, data: { search: $('#searchInput').val().trim(), inspection: $('#inspectionFilter').is(':checked'), yearRecord: $('#yearRecordFilter').is(':checked') } }).done(function(response) {
             hideTableLoader(() => { $("#results").html(response); $('#results .my-table').addClass('table-loaded'); });
         }).fail(function() { hideTableLoader(() => $("#results").html('<div class="empty-message">Ошибка при загрузке данных</div>')); });
     }
@@ -365,14 +368,15 @@ $(document).ready(function() {
     // =========================================================================
     // 8. ДОБАВЛЕНИЕ НОВОЙ ЗАПИСИ (АДМИН)
     // =========================================================================
-    $('#entryBtn').click(function() { 
-        $('.choice, .new-entry').hide(); 
-        $('.new-entry:not(.search)').show(); 
-        $('#newEntryBtnBack').show(); 
-        $("input[name='inspection'], input[name='yearRecord']").prop('checked', false);
-        clearFieldError($('#fullNameApplicant')); // Теперь эта функция определена выше
-        loadLastRecords(); 
-    });
+$('#entryBtn').click(function() { 
+    $('.choice, .new-entry').hide(); 
+    $('.new-entry:not(.search)').show(); 
+    $('#newEntryBtnBack').show(); 
+    $('#multipleCarsBtn').show(); // <-- ДОБАВЛЕНО
+    $("input[name='inspection'], input[name='yearRecord']").prop('checked', false);
+    clearFieldError($('#fullNameApplicant')); 
+    loadLastRecords(); 
+});
 
     $("#clearFormBtn").click(function() {
         $("#carForm")[0].reset(); 
@@ -396,11 +400,13 @@ $(document).ready(function() {
         const entryDate = ($("input[name='entryDate']").val() || '').trim();
         const outDate = ($("input[name='outDate']").val() || '').trim();
         const comment = ($("textarea[name='comment']").val() || '').trim();
+        const entryTime = ($("input[name='entryTime']").val() || '').trim();
+        const outTime = ($("input[name='outTime']").val() || '').trim();
 
         // ВАЛИДАЦИЯ: ФИО обязательно для админа
         clearFieldError($('#fullNameApplicant'));
         if (!fullNameApplicant) {
-            showFieldError($('#fullNameApplicant'), $('#fullNameError')); // Теперь эта функция определена выше
+            showFieldError($('#fullNameApplicant'), $('#fullNameError'));
             showToast("Пожалуйста, укажите ФИО инициатора!", 'warning');
             $("input[name='fullNameApplicant']").focus();
             return;
@@ -411,6 +417,8 @@ $(document).ready(function() {
             return;
         }
 
+
+
         const isInspection = $("input[name='inspection']").is(':checked') ? 1 : 0;
         const isYearRecord = $("input[name='yearRecord']").is(':checked') ? 1 : 0;
 
@@ -419,8 +427,8 @@ $(document).ready(function() {
             stateNumber: stateNumber, 
             driverLastName: driverLastName,
             fullNameApplicant: fullNameApplicant, 
-            entryTime: $("input[name='entryTime']").val() || '', 
-            outTime: $("input[name='outTime']").val() || '',
+            entryTime: entryTime, 
+            outTime: outTime,
             entryDate: entryDate, 
             outDate: outDate, 
             comment: comment,
@@ -530,10 +538,10 @@ $(document).ready(function() {
             state_number: row.find('input[data-field="state_number"]').val().trim(),
             driver_last_name: row.find('input[data-field="driver_last_name"]').val().trim(),
             full_name_applicant: row.find('input[data-field="full_name_applicant"]').val().trim(),
-            entry_time: row.find('input[data-field="entry_time"]').val(),
-            out_time: row.find('input[data-field="out_time"]').val(),
-            entry_date: row.find('input[data-field="entry_date"]').val(),
-            out_date: row.find('input[data-field="out_date"]').val(),
+            entry_time: row.find('input[data-field="entry_time"]').val().trim(),
+            out_time: row.find('input[data-field="out_time"]').val().trim(),
+            entry_date: row.find('input[data-field="entry_date"]').val().trim(),
+            out_date: row.find('input[data-field="out_date"]').val().trim(),
             comment: row.find('textarea[data-field="comment"]').val().trim(),
             inspection: row.find('input[data-field="inspection"]').is(':checked') ? 1 : 0,
             year_record: row.find('input[data-field="year_record"]').is(':checked') ? 1 : 0
@@ -543,6 +551,8 @@ $(document).ready(function() {
             showToast("Пожалуйста, заполните хотя бы одно поле!", 'warning', 'validation_save_' + Date.now());
             return; 
         }
+
+
 
         ajaxWithLoader({ type: "POST", url: "update_record.php", data: data, dataType: 'json' }).done(function(response) {
             if (response && response.success) {
@@ -609,15 +619,26 @@ $(document).ready(function() {
     // =========================================================================
     // 10. НАВИГАЦИЯ, ПОИСК И СОРТИРОВКА
     // =========================================================================
-    $('#searchBtn').click(function() { $('.choice, .new-entry').hide(); $('.new-entry.search').show(); $('#newEntryBtnBack').show(); performSearch(); });
+    $('#searchBtn').click(function() { 
+        $('.choice, .new-entry').hide(); 
+        $('.new-entry.search').show(); 
+        $('#newEntryBtnBack').show(); 
+        $('#multipleCarsBtn').hide(); // <-- ДОБАВЛЕНО (при поиске кнопка не нужна)
+        performSearch(); 
+    });
     $('#newEntryBtnBack').click(function() {
         if (hasUnsavedChanges && !confirm('У вас есть несохранённые изменения. Вернуться назад?')) return;
-        $('.new-entry').hide(); $('.choice').show(); $(this).hide(); $('#results').empty(); hasUnsavedChanges = false; 
+        $('.new-entry').hide(); 
+        $('.choice').show(); 
+        $(this).hide(); 
+        $('#multipleCarsBtn').hide();
+        $('#results').empty(); 
+        hasUnsavedChanges = false; 
     });
     $('#searchInput').on('input', function() { clearTimeout(searchTimer); searchTimer = setTimeout(performSearch, 500); });
-    $('#inspectionFilter, #yearRecordFilter, #dateFilter').on('change', performSearch);
+    $('#inspectionFilter, #yearRecordFilter').on('change', performSearch);
     $("#clearSearchBtn").click(function() {
-        $('#searchInput').val(''); $('#inspectionFilter, #yearRecordFilter').prop('checked', false); $('#dateFilter').val('');
+        $('#searchInput').val(''); $('#inspectionFilter, #yearRecordFilter').prop('checked', false);
         performSearch(); showToast("Фильтры поиска сброшены", 'info', 'search_clear_' + Date.now());
     });
 
@@ -838,6 +859,10 @@ $(document).ready(function() {
     }
 
 
+
+    
+
+
     // =========================================================================
     // МАСКА И ОБРАБОТЧИК РУЧНОГО ВВОДА ДАТЫ И ВРЕМЕНИ
     // =========================================================================
@@ -970,4 +995,377 @@ $(document).ready(function() {
     });
 
 
+
+    // =========================================================================
+    // ИНИЦИАЛИЗАЦИЯ КАСТОМНОГО КАЛЕНДАРЯ (FLATPICKR)
+    // =========================================================================
+    if (typeof flatpickr === 'function') {
+        
+        // 1. Инициализация календаря дат
+        flatpickr(".custom-date-picker", {
+            dateFormat: "d.m.Y",
+            locale: "ru",
+            allowInput: true,
+            disableMobile: "true",
+            onOpen: function(selectedDates, dateStr, instance) {
+                const yearInput = instance.yearElements[0];
+                if (yearInput) {
+                    yearInput.type = 'text';
+                }
+            }
+        });
+
+        // 2. Инициализация выбора времени
+        flatpickr(".custom-time-picker", {
+            enableTime: true,
+            noCalendar: true,
+            dateFormat: "H:i",
+            time_24hr: true,
+            allowInput: true,
+            disableMobile: "true",
+            defaultHour: 9,
+            defaultMinute: 0,
+            onChange: function(selectedDates, dateStr, instance) {
+                if (instance.input && dateStr) {
+                    instance.input.value = dateStr;
+                }
+            }
+        });
+
+        // 3. Клик по иконке календаря
+        $(document).on('click', '.calendar-icon', function() {
+            const inputElement = $(this).prev('.custom-date-picker').get(0);
+            if (inputElement && inputElement._flatpickr) {
+                inputElement._flatpickr.open();
+            }
+        });
+
+        // 4. Клик по иконке времени
+        $(document).on('click', '.time-icon', function() {
+            const inputElement = $(this).prev('.custom-time-picker').get(0);
+            if (inputElement && inputElement._flatpickr) {
+                inputElement._flatpickr.open();
+            }
+        });
+
+        // 5. Переключение цифр колесиком мыши
+        document.addEventListener('wheel', function(e) {
+            if (e.target.classList.contains('flatpickr-hour') || e.target.classList.contains('flatpickr-minute')) {
+                e.preventDefault(); 
+                
+                const currentValue = parseInt(e.target.value) || 0;
+                const isHour = e.target.classList.contains('flatpickr-hour');
+                const max = isHour ? 23 : 59;
+                const delta = e.deltaY < 0 ? 1 : -1;
+                
+                let newValue = currentValue + delta;
+                if (newValue > max) newValue = 0;
+                if (newValue < 0) newValue = max;
+                
+                e.target.value = newValue.toString().padStart(2, '0');
+                
+                let fp = null;
+                document.querySelectorAll('.custom-time-picker').forEach(input => {
+                    if (input._flatpickr && input._flatpickr.isOpen) {
+                        fp = input._flatpickr;
+                    }
+                });
+
+                if (fp && fp.hourElement && fp.minuteElement) {
+                    const h = parseInt(fp.hourElement.value) || 0;
+                    const m = parseInt(fp.minuteElement.value) || 0;
+                    const d = fp.selectedDates[0] || new Date();
+                    d.setHours(h, m, 0, 0);
+                    fp.setDate(d, true);
+                }
+            }
+        }, { passive: false });
+
+        // 6. Запасной вариант: запись при потере фокуса
+        $(document).on('blur', '.custom-time-picker', function() {
+            const input = this;
+            const fp = input._flatpickr;
+            
+            if (fp) {
+                if (fp.selectedDates && fp.selectedDates.length > 0) {
+                    input.value = fp.formatDate(fp.selectedDates[0], "H:i");
+                } else if (fp.hourElement && fp.minuteElement) {
+                    const h = fp.hourElement.value.padStart(2, '0');
+                    const m = fp.minuteElement.value.padStart(2, '0');
+                    input.value = `${h}:${m}`;
+                }
+                $(input).trigger('change');
+            }
+        });
+    }
+
+    // =========================================================================
+    // МАСКА И ОБРАБОТЧИК РУЧНОГО ВВОДА ДАТЫ И ВРЕМЕНИ
+    // =========================================================================
+    $(document).on('input', '.custom-date-picker', function(e) {
+        const input = this;
+        const fp = input._flatpickr;
+        if (fp && fp._isSettingValue) return;
+        
+        let value = input.value.replace(/[^\d]/g, '');
+        if (value.length > 8) value = value.slice(0, 8);
+        
+        let formatted = '';
+        if (value.length > 0) {
+            let day = value.slice(0, 2);
+            if (day.length === 2) {
+                const d = parseInt(day, 10);
+                if (d > 31) day = '31';
+                if (d < 1 && day.length === 2) day = '01';
+            }
+            formatted = day;
+        }
+        if (value.length > 2) {
+            formatted += '.';
+            let month = value.slice(2, 4);
+            if (month.length === 2) {
+                const m = parseInt(month, 10);
+                if (m > 12) month = '12';
+                if (m < 1 && month.length === 2) month = '01';
+            }
+            formatted += month;
+        }
+        if (value.length > 4) {
+            formatted += '.';
+            let year = value.slice(4, 8);
+            formatted += year;
+        }
+        input.value = formatted;
+    });
+
+    $(document).on('blur', '.custom-date-picker', function() {
+        const input = this;
+        const fp = input._flatpickr;
+        const value = $(input).val().trim();
+        
+        if (fp && value) {
+            const dateMatch = value.match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
+            if (dateMatch) {
+                const day = parseInt(dateMatch[1]);
+                const month = parseInt(dateMatch[2]) - 1;
+                const year = parseInt(dateMatch[3]);
+                const date = new Date(year, month, day);
+                
+                if (!isNaN(date.getTime())) {
+                    fp._isSettingValue = true;
+                    fp.setDate(date, true);
+                    setTimeout(() => { fp._isSettingValue = false; }, 100);
+                }
+            }
+        }
+    });
+
+    $(document).on('input', '.custom-time-picker', function(e) {
+        const input = this;
+        const fp = input._flatpickr;
+        if (fp && fp._isSettingValue) return;
+        
+        let value = input.value.replace(/[^\d]/g, '');
+        if (value.length > 4) value = value.slice(0, 4);
+        
+        let formatted = '';
+        if (value.length > 0) {
+            let hours = value.slice(0, 2);
+            if (hours.length === 2) {
+                const h = parseInt(hours, 10);
+                if (h > 23) hours = '23';
+                if (h < 0 && hours.length === 2) hours = '00';
+            }
+            formatted = hours;
+        }
+        if (value.length > 2) {
+            formatted += ':';
+            let minutes = value.slice(2, 4);
+            if (minutes.length === 2) {
+                const m = parseInt(minutes, 10);
+                if (m > 59) minutes = '59';
+                if (m < 0 && minutes.length === 2) minutes = '00';
+            }
+            formatted += minutes;
+        }
+        input.value = formatted;
+    });
+
+    $(document).on('blur', '.custom-time-picker', function() {
+        const input = this;
+        const fp = input._flatpickr;
+        const value = $(input).val().trim();
+        
+        if (fp && value) {
+            const timeMatch = value.match(/^(\d{1,2}):(\d{2})$/);
+            if (timeMatch) {
+                const hours = parseInt(timeMatch[1]);
+                const minutes = parseInt(timeMatch[2]);
+                
+                if (hours >= 0 && hours <= 23 && minutes >= 0 && minutes <= 59) {
+                    const date = fp.selectedDates[0] || new Date();
+                    date.setHours(hours, minutes, 0, 0);
+                    fp._isSettingValue = true;
+                    fp.setDate(date, true);
+                    setTimeout(() => { fp._isSettingValue = false; }, 100);
+                }
+            }
+        }
+    });
+
+     // =========================================================================
+    // 12. МОДАЛКА "НЕСКОЛЬКО МАШИН" (БЫСТРЫЙ ВВОД) - ОБНОВЛЕННАЯ ЛОГИКА
+    // =========================================================================
+    let multipleCarsRowCounter = 0;
+
+    // Открытие модалки
+    $('#multipleCarsBtn').click(function() {
+        $('#multipleCarsList').empty();
+        multipleCarsRowCounter = 0;
+        addMultipleCarRow();
+        addMultipleCarRow();
+        $('#multipleCarsModal').fadeIn(200);
+        setTimeout(function() {
+            $('#multipleCarsList .multiple-car-input').first().focus();
+        }, 250);
+    });
+
+    // Закрытие модалки
+    function closeMultipleCarsModal() {
+        $('#multipleCarsModal').fadeOut(200);
+    }
+    $('#closeMultipleCarsBtn, #cancelMultipleCarsBtn, #multipleCarsOverlay').click(closeMultipleCarsModal);
+
+    // Добавление новой строки
+    function addMultipleCarRow() {
+        multipleCarsRowCounter++;
+        const rowNum = multipleCarsRowCounter;
+        
+        let html = '<div class="multiple-car-row" data-row="' + rowNum + '">';
+        html += '<span class="row-number">' + rowNum + '</span>';
+        html += '<input type="text" class="edit-field multiple-car-input" data-type="plate-normalize" placeholder="Гос/номер" maxlength="15" autocomplete="off">';
+        html += '<button class="remove-row-btn" type="button" title="Удалить строку">';
+        html += '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">';
+        html += '<path d="M18 6L6 18M6 6L18 18" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>';
+        html += '</svg>';
+        html += '</button>';
+        html += '</div>';
+        
+        const $row = $(html);
+        $('#multipleCarsList').append($row);
+        
+        const list = $('#multipleCarsList')[0];
+        if (list) {
+            list.scrollTop = list.scrollHeight;
+        }
+        
+        return $row.find('.multiple-car-input');
+    }
+
+    // Удаление строки
+    $(document).on('click', '.remove-row-btn', function() {
+        const $row = $(this).closest('.multiple-car-row');
+        const $list = $('#multipleCarsList');
+        
+        if ($list.find('.multiple-car-row').length <= 1) {
+            showToast('Должна остаться хотя бы одна строка', 'warning');
+            return;
+        }
+        
+        $row.fadeOut(200, function() {
+            $(this).remove();
+            renumberRows();
+        });
+    });
+
+    // Перенумерация строк
+    function renumberRows() {
+        $('#multipleCarsList .multiple-car-row').each(function(index) {
+            $(this).find('.row-number').text(index + 1);
+        });
+        multipleCarsRowCounter = $('#multipleCarsList .multiple-car-row').length;
+    }
+
+    // НОВАЯ ЛОГИКА: добавление инпута при focus на последний, если все предыдущие заполнены
+    $(document).on('focus', '.multiple-car-input', function() {
+        const $input = $(this);
+        const $row = $input.closest('.multiple-car-row');
+        const $list = $('#multipleCarsList');
+        const $lastRow = $list.find('.multiple-car-row').last();
+        
+        // Если это последний инпут
+        if ($row.is($lastRow)) {
+            // Проверяем, все ли предыдущие инпуты заполнены
+            let allPreviousFilled = true;
+            $list.find('.multiple-car-input').not($input).each(function() {
+                if ($(this).val().trim().length === 0) {
+                    allPreviousFilled = false;
+                    return false; // прерываем цикл
+                }
+            });
+            
+            // Если все предыдущие заполнены - добавляем новый инпут
+            if (allPreviousFilled) {
+                addMultipleCarRow();
+            }
+        }
+    });
+
+    // Очистка пустых инпутов при blur (опционально, для красоты)
+    $(document).on('blur', '.multiple-car-input', function() {
+        const $input = $(this);
+        const $row = $input.closest('.multiple-car-row');
+        const $list = $('#multipleCarsList');
+        const $lastRow = $list.find('.multiple-car-row').last();
+        
+        // Если это не последний инпут и он пустой - удаляем его
+        if (!$row.is($lastRow) && $input.val().trim().length === 0) {
+            if ($list.find('.multiple-car-row').length > 1) {
+                $row.fadeOut(200, function() {
+                    $(this).remove();
+                    renumberRows();
+                });
+            }
+        }
+    });
+
+    // Отправка всех номеров
+    $('#submitMultipleCarsBtn').click(function() {
+        const stateNumbers = [];
+        $('#multipleCarsList .multiple-car-input').each(function() {
+            const val = $(this).val().trim();
+            if (val) stateNumbers.push(val); // Фильтрует пустые строки
+        });
+        
+        if (stateNumbers.length === 0) {
+            showToast('Заполните хотя бы один госномер!', 'warning');
+            return;
+        }
+
+        const $btn = $(this);
+        const originalText = $btn.text();
+        $btn.text('Добавление...').prop('disabled', true);
+        
+        $.ajax({
+            type: "POST",
+            url: "add_multiple_records.php",
+            data: { stateNumbers: JSON.stringify(stateNumbers) },
+            dataType: 'json',
+            success: function(response) {
+                $btn.text(originalText).prop('disabled', false);
+                if (response.success) {
+                    showToast(response.message, 'success', 'multiple_add_success_' + Date.now());
+                    closeMultipleCarsModal();
+                    updateTableIfVisible();
+                } else {
+                    showToast(response.message || 'Ошибка при добавлении', 'error', 'multiple_add_error_' + Date.now());
+                }
+            },
+            error: function() {
+                $btn.text(originalText).prop('disabled', false);
+                showToast('Ошибка сети при добавлении записей', 'error', 'multiple_add_network_error_' + Date.now());
+            }
+        });
+    });
 });
+
