@@ -19,7 +19,7 @@ $(document).ready(function() {
     // =========================================================================
     let verifiedUserCode = '';
     let verifiedUserFullName = '';
-    let isForceRegister = false; // Флаг для перезаписи данных
+    let isForceRegister = false;
     const $codeInputs = $('.code-input');
 
     $('#showRegisterCodeBtn').click(function(e) {
@@ -97,7 +97,6 @@ $(document).ready(function() {
                     verifiedUserCode = code;
                     verifiedUserFullName = response.full_name || 'Сотрудник';
                     
-                    // ПРОВЕРКА: Если код уже занят, сразу показываем модалку
                     if (response.is_registered) {
                         showToast('Этот код уже был использован для регистрации.', 'warning');
                         $('#codeVerificationForm').hide();
@@ -132,7 +131,6 @@ $(document).ready(function() {
         }, 1000);
     }
 
-    // Отправка формы регистрации
     $('#registrationForm').submit(function(e) {
         e.preventDefault();
         const login = $('#regLogin').val().trim();
@@ -140,7 +138,6 @@ $(document).ready(function() {
         const passwordConfirm = $('#regPasswordConfirm').val();
         const csrfToken = $('meta[name="csrf-token"]').attr('content');
         
-        // ИСПРАВЛЕНО: проверка на минимальную длину 8 символов
         if (login.length < 3) { showToast('Логин должен быть не менее 3 символов', 'warning'); return; }
         if (password.length < 8) { showToast('Пароль должен состоять не менее чем из 8 символов', 'warning'); return; }
         if (password !== passwordConfirm) { showToast('Пароли не совпадают', 'warning'); return; }
@@ -157,7 +154,7 @@ $(document).ready(function() {
                 password: password,
                 code: verifiedUserCode, 
                 csrf_token: csrfToken,
-                force_register: isForceRegister ? 1 : 0 // ИСПРАВЛЕНО: передаем флаг перезаписи
+                force_register: isForceRegister ? 1 : 0
             },
             dataType: 'json',
             beforeSend: function(xhr) { xhr.setRequestHeader('X-CSRF-TOKEN', csrfToken); },
@@ -181,7 +178,6 @@ $(document).ready(function() {
         });
     });
 
-    // Обработчики модалок перезаписи
     $('#confirmReuseBtn').click(function() {
         isForceRegister = true;
         $('#codeReuseModal').fadeOut(200);
@@ -333,39 +329,6 @@ $(document).ready(function() {
         this.setSelectionRange(newVal.length, newVal.length);
     });
 
-    $(document).on('input', 'input[data-type="date-mask"]', function() {
-        let value = this.value.replace(/\D/g, '').slice(0, 8);
-        let formatted = '';
-        if (value.length > 0) {
-            let day = value.slice(0, 2);
-            if (day.length === 2) { const d = parseInt(day, 10); if (d > 31) day = '31'; if (d < 1) day = '01'; }
-            formatted = day;
-        }
-        if (value.length > 2) {
-            formatted += '.';
-            let month = value.slice(2, 4);
-            if (month.length === 2) { const m = parseInt(month, 10); if (m > 12) month = '12'; if (m < 1) month = '01'; }
-            formatted += month;
-        }
-        if (value.length > 4) { formatted += '.' + value.slice(4, 8); }
-        this.value = formatted;
-    });
-
-    $(document).on('keydown', 'input[data-type="date-mask"]', function(e) {
-        const allowed = ['Backspace', 'Delete', 'Tab', 'Enter', 'Escape', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'];
-        if (allowed.includes(e.key) || e.ctrlKey || e.metaKey) return;
-        if (e.key < '0' || e.key > '9') e.preventDefault();
-    });
-
-    $(document).on('blur', 'input[data-type="date-mask"]', function() {
-        const value = this.value;
-        if (!value) return;
-        const parts = value.split('.');
-        if (parts.length === 3) {
-            this.dataset.isoDate = `${parts[2].padStart(4, '0')}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
-        }
-    });
-
     // =========================================================================
     // 5. УВЕДОМЛЕНИЯ И ВАЛИДАЦИЯ
     // =========================================================================
@@ -398,7 +361,7 @@ $(document).ready(function() {
         event.preventDefault();
         
         const carMake = ($("input[name='carMake']").val() || '').trim();
-        const stateNumber = ($("input[name='stateNumber']").val() || '').trim(); // ЕДИНОЕ ПОЛЕ
+        const stateNumber = ($("input[name='stateNumber']").val() || '').trim();
         const driverLastName = ($("input[name='driverLastName']").val() || '').trim();
         const entryDate = ($("input[name='entryDate']").val() || '').trim();
         const outDate = ($("input[name='outDate']").val() || '').trim();
@@ -419,7 +382,7 @@ $(document).ready(function() {
 
         pendingSubmitData = {
             carMake: carMake,
-            stateNumber: stateNumber, // ЕДИНОЕ ПОЛЕ
+            stateNumber: stateNumber,
             driverLastName: driverLastName,
             entryTime: entryTime,
             outTime: outTime,
@@ -428,7 +391,7 @@ $(document).ready(function() {
             comment: comment,
             inspection: 0,
             yearRecord: 0,
-            user_token: userToken // ТОКЕН ДОБАВЛЕН
+            user_token: userToken
         };
         
         $('#confirmSubmitText').text('Вы уверены, что хотите добавить эту запись?');
@@ -460,7 +423,6 @@ $(document).ready(function() {
                     showToast(response.message, 'success', 'submit_success_' + Date.now());
                     $("#carForm")[0].reset();
                     
-                    // Обновление счетчика заявок
                     let currentCount = parseInt($('#myRequestsCount').text() || 0);
                     $('#myRequestsCount').text(currentCount + 1).show();
                     
@@ -575,10 +537,8 @@ $(document).ready(function() {
         }
     });
 
-
-
-     // =========================================================================
-    // ИНИЦИАЛИЗАЦИЯ КАСТОМНОГО КАЛЕНДАРЯ (FLATPICKR)
+    // =========================================================================
+    // 9. ИНИЦИАЛИЗАЦИЯ КАСТОМНОГО КАЛЕНДАРЯ (FLATPICKR) И МАСОК - ЕДИНЫЙ БЛОК
     // =========================================================================
     if (typeof flatpickr === 'function') {
         
@@ -590,13 +550,11 @@ $(document).ready(function() {
             disableMobile: "true",
             onOpen: function(selectedDates, dateStr, instance) {
                 const yearInput = instance.yearElements[0];
-                if (yearInput) {
-                    yearInput.type = 'text';
-                }
+                if (yearInput) yearInput.type = 'text';
             }
         });
 
-        // 2. Инициализация выбора времени
+        // 2. Инициализация выбора времени (С ШАГОМ ПРОКРУТКИ)
         flatpickr(".custom-time-picker", {
             enableTime: true,
             noCalendar: true,
@@ -606,8 +564,20 @@ $(document).ready(function() {
             disableMobile: "true",
             defaultHour: 9,
             defaultMinute: 0,
+            hourIncrement: 1,
+            minuteIncrement: 5,
+            
+            // ДОБАВЛЕНО: Принудительная установка 09:00 при открытии, если поле пустое
+            onOpen: function(selectedDates, dateStr, instance) {
+                if (!instance.input.value.trim()) {
+                    const defaultDate = new Date();
+                    defaultDate.setHours(9, 0, 0, 0);
+                    instance.setDate(defaultDate, false); // false = не вызывать onChange лишний раз
+                    instance.input.value = "09:00";       // Мгновенно показываем в инпуте
+                }
+            },
+            
             onChange: function(selectedDates, dateStr, instance) {
-                // При любом изменении состояния Flatpickr записываем в главный инпут
                 if (instance.input && dateStr) {
                     instance.input.value = dateStr;
                 }
@@ -617,213 +587,185 @@ $(document).ready(function() {
         // 3. Клик по иконке календаря
         $(document).on('click', '.calendar-icon', function() {
             const inputElement = $(this).prev('.custom-date-picker').get(0);
-            if (inputElement && inputElement._flatpickr) {
-                inputElement._flatpickr.open();
-            }
+            if (inputElement && inputElement._flatpickr) inputElement._flatpickr.open();
         });
 
         // 4. Клик по иконке времени
         $(document).on('click', '.time-icon', function() {
             const inputElement = $(this).prev('.custom-time-picker').get(0);
-            if (inputElement && inputElement._flatpickr) {
-                inputElement._flatpickr.open();
-            }
+            if (inputElement && inputElement._flatpickr) inputElement._flatpickr.open();
         });
 
-        // =========================================================================
-        // 5. ПЕРЕКЛЮЧЕНИЕ ЦИФР КОЛЕСИКОМ МЫШИ (МАКСИМАЛЬНО НАДЕЖНАЯ ВЕРСИЯ)
-        // =========================================================================
+        // 5. Переключение цифр колесиком мыши (С ПОДДЕРЖКОЙ ШАГА)
         document.addEventListener('wheel', function(e) {
             if (e.target.classList.contains('flatpickr-hour') || e.target.classList.contains('flatpickr-minute')) {
                 e.preventDefault(); 
-                
                 const currentValue = parseInt(e.target.value) || 0;
                 const isHour = e.target.classList.contains('flatpickr-hour');
-                const max = isHour ? 23 : 59;
-                const delta = e.deltaY < 0 ? 1 : -1;
                 
-                let newValue = currentValue + delta;
-                if (newValue > max) newValue = 0;
-                if (newValue < 0) newValue = max;
-                
-                // 1. Обновляем визуально поле в календаре
-                e.target.value = newValue.toString().padStart(2, '0');
-                
-                // 2. Находим ОТКРЫТЫЙ экземпляр flatpickr (универсальный способ)
                 let fp = null;
                 document.querySelectorAll('.custom-time-picker').forEach(input => {
-                    if (input._flatpickr && input._flatpickr.isOpen) {
-                        fp = input._flatpickr;
-                    }
+                    if (input._flatpickr && input._flatpickr.isOpen) fp = input._flatpickr;
                 });
 
+                const step = fp ? (isHour ? (fp.config.hourIncrement || 1) : (fp.config.minuteIncrement || 5)) : (isHour ? 1 : 5);
+                const max = isHour ? 23 : 59;
+                const delta = e.deltaY < 0 ? step : -step;
+                
+                let newValue = currentValue + delta;
+                if (newValue > max) newValue = isHour ? 0 : (max - (max % step));
+                if (newValue < 0) newValue = isHour ? max : max;
+                
+                e.target.value = newValue.toString().padStart(2, '0');
+
                 if (fp && fp.hourElement && fp.minuteElement) {
-                    // Собираем время напрямую из полей календаря
                     const h = parseInt(fp.hourElement.value) || 0;
                     const m = parseInt(fp.minuteElement.value) || 0;
-                    
-                    // Создаем дату (берем текущую выбранную или сегодня)
                     const d = fp.selectedDates[0] || new Date();
                     d.setHours(h, m, 0, 0);
-                    
-                    // Обновляем состояние flatpickr (true = вызвать onChange)
                     fp.setDate(d, true);
                 }
             }
         }, { passive: false });
 
-        // 6. ЗАПАСНОЙ ВАРИАНТ: запись при потере фокуса (клик вне календаря)
+        // 6. ОЧИСТКА ДАТЫ И ВРЕМЕНИ ПО КЛАВИШЕ BACKSPACE (С ПОЛНЫМ СБРОСОМ)
+        $(document).on('keydown', '.custom-date-picker, .custom-time-picker', function(e) {
+            if (e.key === 'Backspace') {
+                const fp = this._flatpickr;
+                if (fp && (fp.isOpen || $(this).val().trim().length > 0)) {
+                    fp.clear();
+                    fp.close();
+                    // КРИТИЧЕСКИ ВАЖНО: сбрасываем внутренние поля, чтобы blur не вернул старое значение
+                    if (fp.hourElement) fp.hourElement.value = '';
+                    if (fp.minuteElement) fp.minuteElement.value = '';
+                    fp.selectedDates = [];
+                    e.preventDefault();
+                }
+            }
+        });
+
+        // 7. ОБРАБОТКА ПОТЕРИ ФОКУСА (BLUR) ДЛЯ ВРЕМЕНИ (С ЗАЩИТОЙ ОТ ВОССТАНОВЛЕНИЯ)
         $(document).on('blur', '.custom-time-picker', function() {
             const input = this;
             const fp = input._flatpickr;
+            const currentValue = $(input).val().trim();
+
+            // КРИТИЧЕСКИ ВАЖНО: если поле пустое, принудительно очищаем и выходим
+            if (currentValue === '') {
+                if (fp) {
+                    fp.selectedDates = [];
+                    if (fp.hourElement) fp.hourElement.value = '';
+                    if (fp.minuteElement) fp.minuteElement.value = '';
+                }
+                return;
+            }
             
             if (fp) {
-                // Если есть корректные выбранные даты, используем их
                 if (fp.selectedDates && fp.selectedDates.length > 0) {
                     input.value = fp.formatDate(fp.selectedDates[0], "H:i");
-                } 
-                // Иначе берем напрямую из полей календаря (абсолютная защита от сброса)
-                else if (fp.hourElement && fp.minuteElement) {
+                } else if (fp.hourElement && fp.minuteElement) {
                     const h = fp.hourElement.value.padStart(2, '0');
                     const m = fp.minuteElement.value.padStart(2, '0');
                     input.value = `${h}:${m}`;
                 }
-                
                 $(input).trigger('change');
             }
         });
+
+        // 8. МАСКА И ОБРАБОТЧИК РУЧНОГО ВВОДА ДАТЫ
+        $(document).on('input', '.custom-date-picker', function(e) {
+            const input = this;
+            const fp = input._flatpickr;
+            if (fp && fp._isSettingValue) return;
+            
+            let value = input.value.replace(/[^\d]/g, '');
+            if (value.length > 8) value = value.slice(0, 8);
+            
+            let formatted = '';
+            if (value.length > 0) {
+                let day = value.slice(0, 2);
+                if (day.length === 2) {
+                    const d = parseInt(day, 10);
+                    if (d > 31) day = '31';
+                    if (d < 1 && day.length === 2) day = '01';
+                }
+                formatted = day;
+            }
+            if (value.length > 2) {
+                formatted += '.';
+                let month = value.slice(2, 4);
+                if (month.length === 2) {
+                    const m = parseInt(month, 10);
+                    if (m > 12) month = '12';
+                    if (m < 1 && month.length === 2) month = '01';
+                }
+                formatted += month;
+            }
+            if (value.length > 4) {
+                formatted += '.';
+                let year = value.slice(4, 8);
+                formatted += year;
+            }
+            input.value = formatted;
+        });
+
+        $(document).on('blur', '.custom-date-picker', function() {
+            const input = this;
+            const fp = input._flatpickr;
+            const currentValue = $(input).val().trim();
+
+            if (currentValue === '') {
+                if (fp) fp.selectedDates = [];
+                return;
+            }
+            
+            if (fp && currentValue) {
+                const dateMatch = currentValue.match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
+                if (dateMatch) {
+                    const day = parseInt(dateMatch[1]);
+                    const month = parseInt(dateMatch[2]) - 1;
+                    const year = parseInt(dateMatch[3]);
+                    const date = new Date(year, month, day);
+                    if (!isNaN(date.getTime())) {
+                        fp._isSettingValue = true;
+                        fp.setDate(date, true);
+                        setTimeout(() => { fp._isSettingValue = false; }, 100);
+                    }
+                }
+            }
+        });
+
+        // 9. МАСКА И ОБРАБОТЧИК РУЧНОГО ВВОДА ВРЕМЕНИ
+        $(document).on('input', '.custom-time-picker', function(e) {
+            const input = this;
+            const fp = input._flatpickr;
+            if (fp && fp._isSettingValue) return;
+            
+            let value = input.value.replace(/[^\d]/g, '');
+            if (value.length > 4) value = value.slice(0, 4);
+            
+            let formatted = '';
+            if (value.length > 0) {
+                let hours = value.slice(0, 2);
+                if (hours.length === 2) {
+                    const h = parseInt(hours, 10);
+                    if (h > 23) hours = '23';
+                    if (h < 0 && hours.length === 2) hours = '00';
+                }
+                formatted = hours;
+            }
+            if (value.length > 2) {
+                formatted += ':';
+                let minutes = value.slice(2, 4);
+                if (minutes.length === 2) {
+                    const m = parseInt(minutes, 10);
+                    if (m > 59) minutes = '59';
+                    if (m < 0 && minutes.length === 2) minutes = '00';
+                }
+                formatted += minutes;
+            }
+            input.value = formatted;
+        });
     }
 
-
-    // =========================================================================
-    // МАСКА И ОБРАБОТЧИК РУЧНОГО ВВОДА ДАТЫ И ВРЕМЕНИ
-    // =========================================================================
-    
-    // Маска для полей даты (ДД.ММ.ГГГГ)
-    $(document).on('input', '.custom-date-picker', function(e) {
-        const input = this;
-        const fp = input._flatpickr;
-        
-        // Если изменение от Flatpickr - пропускаем
-        if (fp && fp._isSettingValue) return;
-        
-        let value = input.value.replace(/[^\d]/g, ''); // Только цифры
-        
-        // Ограничиваем длину
-        if (value.length > 8) value = value.slice(0, 8);
-        
-        // Форматируем с точками
-        let formatted = '';
-        if (value.length > 0) {
-            let day = value.slice(0, 2);
-            if (day.length === 2) {
-                const d = parseInt(day, 10);
-                if (d > 31) day = '31';
-                if (d < 1 && day.length === 2) day = '01';
-            }
-            formatted = day;
-        }
-        if (value.length > 2) {
-            formatted += '.';
-            let month = value.slice(2, 4);
-            if (month.length === 2) {
-                const m = parseInt(month, 10);
-                if (m > 12) month = '12';
-                if (m < 1 && month.length === 2) month = '01';
-            }
-            formatted += month;
-        }
-        if (value.length > 4) {
-            formatted += '.';
-            let year = value.slice(4, 8);
-            formatted += year;
-        }
-        
-        input.value = formatted;
-    });
-
-    // Обработка потери фокуса для даты - парсинг и установка в Flatpickr
-    $(document).on('blur', '.custom-date-picker', function() {
-        const input = this;
-        const fp = input._flatpickr;
-        const value = $(input).val().trim();
-        
-        if (fp && value) {
-            const dateMatch = value.match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
-            if (dateMatch) {
-                const day = parseInt(dateMatch[1]);
-                const month = parseInt(dateMatch[2]) - 1;
-                const year = parseInt(dateMatch[3]);
-                const date = new Date(year, month, day);
-                
-                if (!isNaN(date.getTime())) {
-                    fp._isSettingValue = true;
-                    fp.setDate(date, true);
-                    setTimeout(() => { fp._isSettingValue = false; }, 100);
-                }
-            }
-        }
-    });
-
-    // Маска для полей времени (ЧЧ:ММ)
-    $(document).on('input', '.custom-time-picker', function(e) {
-        const input = this;
-        const fp = input._flatpickr;
-        
-        // Если изменение от Flatpickr - пропускаем
-        if (fp && fp._isSettingValue) return;
-        
-        let value = input.value.replace(/[^\d]/g, ''); // Только цифры
-        
-        // Ограничиваем длину
-        if (value.length > 4) value = value.slice(0, 4);
-        
-        // Форматируем с двоеточием
-        let formatted = '';
-        if (value.length > 0) {
-            let hours = value.slice(0, 2);
-            if (hours.length === 2) {
-                const h = parseInt(hours, 10);
-                if (h > 23) hours = '23';
-                if (h < 0 && hours.length === 2) hours = '00';
-            }
-            formatted = hours;
-        }
-        if (value.length > 2) {
-            formatted += ':';
-            let minutes = value.slice(2, 4);
-            if (minutes.length === 2) {
-                const m = parseInt(minutes, 10);
-                if (m > 59) minutes = '59';
-                if (m < 0 && minutes.length === 2) minutes = '00';
-            }
-            formatted += minutes;
-        }
-        
-        input.value = formatted;
-    });
-
-    // Обработка потери фокуса для времени - парсинг и установка в Flatpickr
-    $(document).on('blur', '.custom-time-picker', function() {
-        const input = this;
-        const fp = input._flatpickr;
-        const value = $(input).val().trim();
-        
-        if (fp && value) {
-            const timeMatch = value.match(/^(\d{1,2}):(\d{2})$/);
-            if (timeMatch) {
-                const hours = parseInt(timeMatch[1]);
-                const minutes = parseInt(timeMatch[2]);
-                
-                if (hours >= 0 && hours <= 23 && minutes >= 0 && minutes <= 59) {
-                    const date = fp.selectedDates[0] || new Date();
-                    date.setHours(hours, minutes, 0, 0);
-                    fp._isSettingValue = true;
-                    fp.setDate(date, true);
-                    setTimeout(() => { fp._isSettingValue = false; }, 100);
-                }
-            }
-        }
-    });
-
-});
+}); // КОНЕЦ $(document).ready

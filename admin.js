@@ -45,6 +45,7 @@ $(document).ready(function() {
     const undoStore = {};
     let loaderTimeout = null;
     let loaderVisible = false;
+    let currentSearchXHR = null; // Для отмены предыдущего запроса поиска
 
     // =========================================================================
     // 3. УМНЫЙ SCREEN LOADER
@@ -84,7 +85,6 @@ $(document).ready(function() {
         if (notificationId) sessionStorage.setItem('notification_' + notificationId, 'true');
     }
 
-    // === ДОБАВЛЕНЫ missing ФУНКЦИИ ВАЛИДАЦИИ ===
     function showFieldError($field, $errorEl) {
         $field.addClass('field-error-active shake');
         if ($errorEl && $errorEl.length) $errorEl.addClass('visible');
@@ -95,10 +95,6 @@ $(document).ready(function() {
         $field.removeClass('field-error-active');
         $('#' + $field.attr('id') + 'Error').removeClass('visible');
     }
-    // ============================================
-
-
-
 
     function refreshTableUI() {
         $('.table-row:not(.editing) .edit-field[placeholder]').each(function() {
@@ -246,7 +242,7 @@ $(document).ready(function() {
     }
 
     // =========================================================================
-    // 6. ЗАГРУЗКА И ПОИСК В ТАБЛИЦАХ
+    // 6. ЗАГРУЗКА И ПОИСК В ТАБЛИЦАХ (С ОПТИМИЗАЦИЕЙ СЕТИ)
     // =========================================================================
     function updateTableIfVisible() {
         if ($('.choice').is(':visible')) return;
@@ -254,7 +250,7 @@ $(document).ready(function() {
         else if ($('.new-entry:not(.search)').is(':visible')) loadLastRecords();
     }
     function showTableLoader() {
-        $("#results").html(`<div class="table-loader" id="tableLoader"><div class="skeleton-table"><div class="skeleton-header">${Array(12).fill('').map(() => `<div class="skeleton-cell"><div class="skeleton-block medium"></div></div>`).join('')}</div>${Array(5).fill('').map(() => `<div class="skeleton-row">${Array(12).fill('').map(() => `<div class="skeleton-cell"><div class="skeleton-block medium"></div></div>`).join('')}</div>`).join('')}</div></div>`);
+        $("#results").html(`<div class="table-loader" id="tableLoader"><div class="skeleton-table"><div class="skeleton-header">${Array(6).fill('').map(() => `<div class="skeleton-cell"><div class="skeleton-block medium"></div></div>`).join('')}</div>${Array(3).fill('').map(() => `<div class="skeleton-row">${Array(6).fill('').map(() => `<div class="skeleton-cell"><div class="skeleton-block medium"></div></div>`).join('')}</div>`).join('')}</div></div>`);
     }
     function hideTableLoader(callback) {
         const loader = $('#tableLoader');
@@ -266,9 +262,26 @@ $(document).ready(function() {
         if (loader.length) { loader.addClass('fade-out'); setTimeout(finish, 300); } else { finish(); }
     }
     function performSearch() {
-        ajaxWithLoader({ type: "GET", url: "search_records.php", cache: false, data: { search: $('#searchInput').val().trim(), inspection: $('#inspectionFilter').is(':checked'), yearRecord: $('#yearRecordFilter').is(':checked') } }).done(function(response) {
+        if (currentSearchXHR) currentSearchXHR.abort(); // Отмена предыдущего запроса
+        
+        currentSearchXHR = ajaxWithLoader({ 
+            type: "GET", 
+            url: "search_records.php", 
+            cache: false, 
+            data: { 
+                search: $('#searchInput').val().trim(), 
+                inspection: $('#inspectionFilter').is(':checked'), 
+                yearRecord: $('#yearRecordFilter').is(':checked') 
+            } 
+        }).done(function(response) {
+            currentSearchXHR = null;
             hideTableLoader(() => { $("#results").html(response); $('#results .my-table').addClass('table-loaded'); });
-        }).fail(function() { hideTableLoader(() => $("#results").html('<div class="empty-message">Ошибка при загрузке данных</div>')); });
+        }).fail(function(xhr) {
+            currentSearchXHR = null;
+            if (xhr.statusText !== 'abort') {
+                hideTableLoader(() => $("#results").html('<div class="empty-message">Ошибка при загрузке данных</div>'));
+            }
+        });
     }
     function loadLastRecords() {
         ajaxWithLoader({ type: "GET", url: "get_last_records.php", cache: false }).done(function(response) {
@@ -276,21 +289,12 @@ $(document).ready(function() {
         }).fail(function() { hideTableLoader(() => $("#results").html('<div class="empty-message">Ошибка при загрузке данных</div>')); });
     }
 
-
-        // =========================================================================
-    // ИНИЦИАЛИЗАЦИЯ КАЛЕНДАРЕЙ В ТАБЛИЦЕ (ДЛЯ AJAX)
-    // =========================================================================
-        function initTablePickers() {
+    function initTablePickers() {
         if (typeof flatpickr === 'function') {
-            // Инициализация дат в таблице
             $('.custom-date-picker').each(function() {
                 if (!this._flatpickr) {
                     flatpickr(this, {
-                        dateFormat: "d.m.Y",
-                        locale: "ru",
-                        allowInput: true,
-                        disableMobile: "true",
-                        position: 'above',
+                        dateFormat: "d.m.Y", locale: "ru", allowInput: true, disableMobile: "true", position: 'above',
                         onOpen: function(selectedDates, dateStr, instance) {
                             instance.calendarContainer.classList.add('calendar-in-table');
                             const yearInput = instance.yearElements[0];
@@ -299,28 +303,16 @@ $(document).ready(function() {
                     });
                 }
             });
-
-            // Инициализация времени в таблице
             $('.custom-time-picker').each(function() {
                 if (!this._flatpickr) {
                     flatpickr(this, {
-                        enableTime: true,
-                        noCalendar: true,
-                        dateFormat: "H:i",
-                        time_24hr: true,
-                        allowInput: true,
-                        disableMobile: "true",
-                        defaultHour: 9,
-                        defaultMinute: 0,
-                        position: 'above',
+                        enableTime: true, noCalendar: true, dateFormat: "H:i", time_24hr: true, allowInput: true, disableMobile: "true",
+                        defaultHour: 9, defaultMinute: 0, hourIncrement: 1, minuteIncrement: 1, position: 'above',
                         onOpen: function(selectedDates, dateStr, instance) {
-                            // ВАЖНО: добавляем класс при каждом открытии
                             instance.calendarContainer.classList.add('time-picker-in-table');
                         },
                         onChange: function(selectedDates, dateStr, instance) {
-                            if (instance.input && dateStr) {
-                                instance.input.value = dateStr;
-                            }
+                            if (instance.input && dateStr) instance.input.value = dateStr;
                         }
                     });
                 }
@@ -368,15 +360,15 @@ $(document).ready(function() {
     // =========================================================================
     // 8. ДОБАВЛЕНИЕ НОВОЙ ЗАПИСИ (АДМИН)
     // =========================================================================
-$('#entryBtn').click(function() { 
-    $('.choice, .new-entry').hide(); 
-    $('.new-entry:not(.search)').show(); 
-    $('#newEntryBtnBack').show(); 
-    $('#multipleCarsBtn').show(); // <-- ДОБАВЛЕНО
-    $("input[name='inspection'], input[name='yearRecord']").prop('checked', false);
-    clearFieldError($('#fullNameApplicant')); 
-    loadLastRecords(); 
-});
+    $('#entryBtn').click(function() { 
+        $('.choice, .new-entry').hide(); 
+        $('.new-entry:not(.search)').show(); 
+        $('#newEntryBtnBack').show(); 
+        $('#multipleCarsBtn').show(); 
+        $("input[name='inspection'], input[name='yearRecord']").prop('checked', false);
+        clearFieldError($('#fullNameApplicant')); 
+        loadLastRecords(); 
+    });
 
     $("#clearFormBtn").click(function() {
         $("#carForm")[0].reset(); 
@@ -392,7 +384,6 @@ $('#entryBtn').click(function() {
 
     $("#carForm").submit(function(event) {
         event.preventDefault();
-        
         const fullNameApplicant = ($("input[name='fullNameApplicant']").val() || '').trim();
         const carMake = ($("input[name='carMake']").val() || '').trim();
         const stateNumber = ($("input[name='stateNumber']").val() || '').trim();
@@ -403,7 +394,6 @@ $('#entryBtn').click(function() {
         const entryTime = ($("input[name='entryTime']").val() || '').trim();
         const outTime = ($("input[name='outTime']").val() || '').trim();
 
-        // ВАЛИДАЦИЯ: ФИО обязательно для админа
         clearFieldError($('#fullNameApplicant'));
         if (!fullNameApplicant) {
             showFieldError($('#fullNameApplicant'), $('#fullNameError'));
@@ -411,29 +401,19 @@ $('#entryBtn').click(function() {
             $("input[name='fullNameApplicant']").focus();
             return;
         }
-
         if (!carMake && !stateNumber && !driverLastName && !entryDate && !outDate && !comment) {
             showToast("Пожалуйста, заполните хотя бы одно дополнительное поле!", 'warning');
             return;
         }
 
-
-
         const isInspection = $("input[name='inspection']").is(':checked') ? 1 : 0;
         const isYearRecord = $("input[name='yearRecord']").is(':checked') ? 1 : 0;
 
         pendingSubmitData = {
-            carMake: carMake, 
-            stateNumber: stateNumber, 
-            driverLastName: driverLastName,
-            fullNameApplicant: fullNameApplicant, 
-            entryTime: entryTime, 
-            outTime: outTime,
-            entryDate: entryDate, 
-            outDate: outDate, 
-            comment: comment,
-            inspection: isInspection,
-            yearRecord: isYearRecord
+            carMake: carMake, stateNumber: stateNumber, driverLastName: driverLastName,
+            fullNameApplicant: fullNameApplicant, entryTime: entryTime, outTime: outTime,
+            entryDate: entryDate, outDate: outDate, comment: comment,
+            inspection: isInspection, yearRecord: isYearRecord
         };
         pendingSubmitYearRecord = isYearRecord;
         
@@ -552,8 +532,6 @@ $('#entryBtn').click(function() {
             return; 
         }
 
-
-
         ajaxWithLoader({ type: "POST", url: "update_record.php", data: data, dataType: 'json' }).done(function(response) {
             if (response && response.success) {
                 showToast("Данные успешно обновлены!", 'success', 'record_update_' + id + '_' + Date.now());
@@ -623,7 +601,7 @@ $('#entryBtn').click(function() {
         $('.choice, .new-entry').hide(); 
         $('.new-entry.search').show(); 
         $('#newEntryBtnBack').show(); 
-        $('#multipleCarsBtn').hide(); // <-- ДОБАВЛЕНО (при поиске кнопка не нужна)
+        $('#multipleCarsBtn').hide(); 
         performSearch(); 
     });
     $('#newEntryBtnBack').click(function() {
@@ -635,7 +613,13 @@ $('#entryBtn').click(function() {
         $('#results').empty(); 
         hasUnsavedChanges = false; 
     });
-    $('#searchInput').on('input', function() { clearTimeout(searchTimer); searchTimer = setTimeout(performSearch, 500); });
+    
+    // Увеличена задержка до 800мс для экономии трафика в медленной сети
+    $('#searchInput').on('input', function() { 
+        clearTimeout(searchTimer); 
+        searchTimer = setTimeout(performSearch, 800); 
+    });
+    
     $('#inspectionFilter, #yearRecordFilter').on('change', performSearch);
     $("#clearSearchBtn").click(function() {
         $('#searchInput').val(''); $('#inspectionFilter, #yearRecordFilter').prop('checked', false);
@@ -740,12 +724,10 @@ $('#entryBtn').click(function() {
         this.setSelectionRange(newVal.length, newVal.length);
     });
 
-
-     // =========================================================================
-    // ИНИЦИАЛИЗАЦИЯ КАСТОМНОГО КАЛЕНДАРЯ (FLATPICKR)
+    // =========================================================================
+    // 12. ИНИЦИАЛИЗАЦИЯ КАСТОМНОГО КАЛЕНДАРЯ (FLATPICKR) - ЕДИНЫЙ БЛОК
     // =========================================================================
     if (typeof flatpickr === 'function') {
-        
         // 1. Инициализация календаря дат
         flatpickr(".custom-date-picker", {
             dateFormat: "d.m.Y",
@@ -754,13 +736,11 @@ $('#entryBtn').click(function() {
             disableMobile: "true",
             onOpen: function(selectedDates, dateStr, instance) {
                 const yearInput = instance.yearElements[0];
-                if (yearInput) {
-                    yearInput.type = 'text';
-                }
+                if (yearInput) yearInput.type = 'text';
             }
         });
 
-        // 2. Инициализация выбора времени
+        // 2. Инициализация выбора времени (С ШАГОМ ПРОКРУТКИ)
         flatpickr(".custom-time-picker", {
             enableTime: true,
             noCalendar: true,
@@ -770,261 +750,8 @@ $('#entryBtn').click(function() {
             disableMobile: "true",
             defaultHour: 9,
             defaultMinute: 0,
-            onChange: function(selectedDates, dateStr, instance) {
-                // При любом изменении состояния Flatpickr записываем в главный инпут
-                if (instance.input && dateStr) {
-                    instance.input.value = dateStr;
-                }
-            }
-        });
-
-        // 3. Клик по иконке календаря
-        $(document).on('click', '.calendar-icon', function() {
-            const inputElement = $(this).prev('.custom-date-picker').get(0);
-            if (inputElement && inputElement._flatpickr) {
-                inputElement._flatpickr.open();
-            }
-        });
-
-        // 4. Клик по иконке времени
-        $(document).on('click', '.time-icon', function() {
-            const inputElement = $(this).prev('.custom-time-picker').get(0);
-            if (inputElement && inputElement._flatpickr) {
-                inputElement._flatpickr.open();
-            }
-        });
-
-        // =========================================================================
-        // 5. ПЕРЕКЛЮЧЕНИЕ ЦИФР КОЛЕСИКОМ МЫШИ (МАКСИМАЛЬНО НАДЕЖНАЯ ВЕРСИЯ)
-        // =========================================================================
-        document.addEventListener('wheel', function(e) {
-            if (e.target.classList.contains('flatpickr-hour') || e.target.classList.contains('flatpickr-minute')) {
-                e.preventDefault(); 
-                
-                const currentValue = parseInt(e.target.value) || 0;
-                const isHour = e.target.classList.contains('flatpickr-hour');
-                const max = isHour ? 23 : 59;
-                const delta = e.deltaY < 0 ? 1 : -1;
-                
-                let newValue = currentValue + delta;
-                if (newValue > max) newValue = 0;
-                if (newValue < 0) newValue = max;
-                
-                // 1. Обновляем визуально поле в календаре
-                e.target.value = newValue.toString().padStart(2, '0');
-                
-                // 2. Находим ОТКРЫТЫЙ экземпляр flatpickr (универсальный способ)
-                let fp = null;
-                document.querySelectorAll('.custom-time-picker').forEach(input => {
-                    if (input._flatpickr && input._flatpickr.isOpen) {
-                        fp = input._flatpickr;
-                    }
-                });
-
-                if (fp && fp.hourElement && fp.minuteElement) {
-                    // Собираем время напрямую из полей календаря
-                    const h = parseInt(fp.hourElement.value) || 0;
-                    const m = parseInt(fp.minuteElement.value) || 0;
-                    
-                    // Создаем дату (берем текущую выбранную или сегодня)
-                    const d = fp.selectedDates[0] || new Date();
-                    d.setHours(h, m, 0, 0);
-                    
-                    // Обновляем состояние flatpickr (true = вызвать onChange)
-                    fp.setDate(d, true);
-                }
-            }
-        }, { passive: false });
-
-        // 6. ЗАПАСНОЙ ВАРИАНТ: запись при потере фокуса (клик вне календаря)
-        $(document).on('blur', '.custom-time-picker', function() {
-            const input = this;
-            const fp = input._flatpickr;
-            
-            if (fp) {
-                // Если есть корректные выбранные даты, используем их
-                if (fp.selectedDates && fp.selectedDates.length > 0) {
-                    input.value = fp.formatDate(fp.selectedDates[0], "H:i");
-                } 
-                // Иначе берем напрямую из полей календаря (абсолютная защита от сброса)
-                else if (fp.hourElement && fp.minuteElement) {
-                    const h = fp.hourElement.value.padStart(2, '0');
-                    const m = fp.minuteElement.value.padStart(2, '0');
-                    input.value = `${h}:${m}`;
-                }
-                
-                $(input).trigger('change');
-            }
-        });
-    }
-
-
-
-    
-
-
-    // =========================================================================
-    // МАСКА И ОБРАБОТЧИК РУЧНОГО ВВОДА ДАТЫ И ВРЕМЕНИ
-    // =========================================================================
-    
-    // Маска для полей даты (ДД.ММ.ГГГГ)
-    $(document).on('input', '.custom-date-picker', function(e) {
-        const input = this;
-        const fp = input._flatpickr;
-        
-        // Если изменение от Flatpickr - пропускаем
-        if (fp && fp._isSettingValue) return;
-        
-        let value = input.value.replace(/[^\d]/g, ''); // Только цифры
-        
-        // Ограничиваем длину
-        if (value.length > 8) value = value.slice(0, 8);
-        
-        // Форматируем с точками
-        let formatted = '';
-        if (value.length > 0) {
-            let day = value.slice(0, 2);
-            if (day.length === 2) {
-                const d = parseInt(day, 10);
-                if (d > 31) day = '31';
-                if (d < 1 && day.length === 2) day = '01';
-            }
-            formatted = day;
-        }
-        if (value.length > 2) {
-            formatted += '.';
-            let month = value.slice(2, 4);
-            if (month.length === 2) {
-                const m = parseInt(month, 10);
-                if (m > 12) month = '12';
-                if (m < 1 && month.length === 2) month = '01';
-            }
-            formatted += month;
-        }
-        if (value.length > 4) {
-            formatted += '.';
-            let year = value.slice(4, 8);
-            formatted += year;
-        }
-        
-        input.value = formatted;
-    });
-
-    // Обработка потери фокуса для даты - парсинг и установка в Flatpickr
-    $(document).on('blur', '.custom-date-picker', function() {
-        const input = this;
-        const fp = input._flatpickr;
-        const value = $(input).val().trim();
-        
-        if (fp && value) {
-            const dateMatch = value.match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
-            if (dateMatch) {
-                const day = parseInt(dateMatch[1]);
-                const month = parseInt(dateMatch[2]) - 1;
-                const year = parseInt(dateMatch[3]);
-                const date = new Date(year, month, day);
-                
-                if (!isNaN(date.getTime())) {
-                    fp._isSettingValue = true;
-                    fp.setDate(date, true);
-                    setTimeout(() => { fp._isSettingValue = false; }, 100);
-                }
-            }
-        }
-    });
-
-    // Маска для полей времени (ЧЧ:ММ)
-    $(document).on('input', '.custom-time-picker', function(e) {
-        const input = this;
-        const fp = input._flatpickr;
-        
-        // Если изменение от Flatpickr - пропускаем
-        if (fp && fp._isSettingValue) return;
-        
-        let value = input.value.replace(/[^\d]/g, ''); // Только цифры
-        
-        // Ограничиваем длину
-        if (value.length > 4) value = value.slice(0, 4);
-        
-        // Форматируем с двоеточием
-        let formatted = '';
-        if (value.length > 0) {
-            let hours = value.slice(0, 2);
-            if (hours.length === 2) {
-                const h = parseInt(hours, 10);
-                if (h > 23) hours = '23';
-                if (h < 0 && hours.length === 2) hours = '00';
-            }
-            formatted = hours;
-        }
-        if (value.length > 2) {
-            formatted += ':';
-            let minutes = value.slice(2, 4);
-            if (minutes.length === 2) {
-                const m = parseInt(minutes, 10);
-                if (m > 59) minutes = '59';
-                if (m < 0 && minutes.length === 2) minutes = '00';
-            }
-            formatted += minutes;
-        }
-        
-        input.value = formatted;
-    });
-
-    // Обработка потери фокуса для времени - парсинг и установка в Flatpickr
-    $(document).on('blur', '.custom-time-picker', function() {
-        const input = this;
-        const fp = input._flatpickr;
-        const value = $(input).val().trim();
-        
-        if (fp && value) {
-            const timeMatch = value.match(/^(\d{1,2}):(\d{2})$/);
-            if (timeMatch) {
-                const hours = parseInt(timeMatch[1]);
-                const minutes = parseInt(timeMatch[2]);
-                
-                if (hours >= 0 && hours <= 23 && minutes >= 0 && minutes <= 59) {
-                    const date = fp.selectedDates[0] || new Date();
-                    date.setHours(hours, minutes, 0, 0);
-                    fp._isSettingValue = true;
-                    fp.setDate(date, true);
-                    setTimeout(() => { fp._isSettingValue = false; }, 100);
-                }
-            }
-        }
-    });
-
-
-
-    // =========================================================================
-    // ИНИЦИАЛИЗАЦИЯ КАСТОМНОГО КАЛЕНДАРЯ (FLATPICKR)
-    // =========================================================================
-    if (typeof flatpickr === 'function') {
-        
-        // 1. Инициализация календаря дат
-        flatpickr(".custom-date-picker", {
-            dateFormat: "d.m.Y",
-            locale: "ru",
-            allowInput: true,
-            disableMobile: "true",
-            onOpen: function(selectedDates, dateStr, instance) {
-                const yearInput = instance.yearElements[0];
-                if (yearInput) {
-                    yearInput.type = 'text';
-                }
-            }
-        });
-
-        // 2. Инициализация выбора времени
-        flatpickr(".custom-time-picker", {
-            enableTime: true,
-            noCalendar: true,
-            dateFormat: "H:i",
-            time_24hr: true,
-            allowInput: true,
-            disableMobile: "true",
-            defaultHour: 9,
-            defaultMinute: 0,
+            hourIncrement: 1,      // Шаг для часов
+            minuteIncrement: 1,    // Шаг для минут (1, 5, 10, 15...)
             onChange: function(selectedDates, dateStr, instance) {
                 if (instance.input && dateStr) {
                     instance.input.value = dateStr;
@@ -1035,41 +762,36 @@ $('#entryBtn').click(function() {
         // 3. Клик по иконке календаря
         $(document).on('click', '.calendar-icon', function() {
             const inputElement = $(this).prev('.custom-date-picker').get(0);
-            if (inputElement && inputElement._flatpickr) {
-                inputElement._flatpickr.open();
-            }
+            if (inputElement && inputElement._flatpickr) inputElement._flatpickr.open();
         });
 
         // 4. Клик по иконке времени
         $(document).on('click', '.time-icon', function() {
             const inputElement = $(this).prev('.custom-time-picker').get(0);
-            if (inputElement && inputElement._flatpickr) {
-                inputElement._flatpickr.open();
-            }
+            if (inputElement && inputElement._flatpickr) inputElement._flatpickr.open();
         });
 
-        // 5. Переключение цифр колесиком мыши
+        // 5. Переключение цифр колесиком мыши (С ПОДДЕРЖКОЙ ШАГА)
         document.addEventListener('wheel', function(e) {
             if (e.target.classList.contains('flatpickr-hour') || e.target.classList.contains('flatpickr-minute')) {
                 e.preventDefault(); 
-                
                 const currentValue = parseInt(e.target.value) || 0;
                 const isHour = e.target.classList.contains('flatpickr-hour');
-                const max = isHour ? 23 : 59;
-                const delta = e.deltaY < 0 ? 1 : -1;
-                
-                let newValue = currentValue + delta;
-                if (newValue > max) newValue = 0;
-                if (newValue < 0) newValue = max;
-                
-                e.target.value = newValue.toString().padStart(2, '0');
                 
                 let fp = null;
                 document.querySelectorAll('.custom-time-picker').forEach(input => {
-                    if (input._flatpickr && input._flatpickr.isOpen) {
-                        fp = input._flatpickr;
-                    }
+                    if (input._flatpickr && input._flatpickr.isOpen) fp = input._flatpickr;
                 });
+
+                const step = fp ? (isHour ? (fp.config.hourIncrement || 1) : (fp.config.minuteIncrement || 5)) : (isHour ? 1 : 5);
+                const max = isHour ? 23 : 59;
+                const delta = e.deltaY < 0 ? step : -step;
+                
+                let newValue = currentValue + delta;
+                if (newValue > max) newValue = isHour ? 0 : (max - (max % step));
+                if (newValue < 0) newValue = isHour ? max : max;
+                
+                e.target.value = newValue.toString().padStart(2, '0');
 
                 if (fp && fp.hourElement && fp.minuteElement) {
                     const h = parseInt(fp.hourElement.value) || 0;
@@ -1085,6 +807,17 @@ $('#entryBtn').click(function() {
         $(document).on('blur', '.custom-time-picker', function() {
             const input = this;
             const fp = input._flatpickr;
+            const currentValue = $(input).val().trim();
+            
+            // КРИТИЧЕСКИ ВАЖНО: если поле пустое — НЕ восстанавливаем старое время
+            if (currentValue === '') {
+                if (fp) {
+                    fp.selectedDates = [];
+                    if (fp.hourElement) fp.hourElement.value = '';
+                    if (fp.minuteElement) fp.minuteElement.value = '';
+                }
+                return; // Выходим, не давая старому времени вернуться
+            }
             
             if (fp) {
                 if (fp.selectedDates && fp.selectedDates.length > 0) {
@@ -1100,7 +833,7 @@ $('#entryBtn').click(function() {
     }
 
     // =========================================================================
-    // МАСКА И ОБРАБОТЧИК РУЧНОГО ВВОДА ДАТЫ И ВРЕМЕНИ
+    // 13. МАСКА И ОБРАБОТЧИК РУЧНОГО ВВОДА ДАТЫ И ВРЕМЕНИ - ЕДИНЫЙ БЛОК
     // =========================================================================
     $(document).on('input', '.custom-date-picker', function(e) {
         const input = this;
@@ -1141,10 +874,16 @@ $('#entryBtn').click(function() {
     $(document).on('blur', '.custom-date-picker', function() {
         const input = this;
         const fp = input._flatpickr;
-        const value = $(input).val().trim();
+        const currentValue = $(input).val().trim();
+
+        // ГЛАВНОЕ ИСПРАВЛЕНИЕ: Если поле пустое, принудительно очищаем flatpickr и выходим
+        if (currentValue === '') {
+            if (fp) fp.clear();
+            return; // Прерываем выполнение
+        }
         
-        if (fp && value) {
-            const dateMatch = value.match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
+        if (fp && currentValue) {
+            const dateMatch = currentValue.match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
             if (dateMatch) {
                 const day = parseInt(dateMatch[1]);
                 const month = parseInt(dateMatch[2]) - 1;
@@ -1194,31 +933,55 @@ $('#entryBtn').click(function() {
     $(document).on('blur', '.custom-time-picker', function() {
         const input = this;
         const fp = input._flatpickr;
-        const value = $(input).val().trim();
+        const currentValue = $(input).val().trim();
+
+        // ГЛАВНОЕ ИСПРАВЛЕНИЕ: Если поле пустое, принудительно очищаем flatpickr и выходим
+        if (currentValue === '') {
+            if (fp) fp.clear();
+            return; // Прерываем выполнение, чтобы старое время не вернулось
+        }
         
-        if (fp && value) {
-            const timeMatch = value.match(/^(\d{1,2}):(\d{2})$/);
-            if (timeMatch) {
-                const hours = parseInt(timeMatch[1]);
-                const minutes = parseInt(timeMatch[2]);
+        if (fp) {
+            if (fp.selectedDates && fp.selectedDates.length > 0) {
+                input.value = fp.formatDate(fp.selectedDates[0], "H:i");
+            } else if (fp.hourElement && fp.minuteElement) {
+                const h = fp.hourElement.value.padStart(2, '0');
+                const m = fp.minuteElement.value.padStart(2, '0');
+                input.value = `${h}:${m}`;
+            }
+            $(input).trigger('change');
+        }
+    });
+
+
+        // =========================================================================
+    // ОЧИСТКА ДАТЫ И ВРЕМЕНИ ПО КЛАВИШЕ BACKSPACE
+    // =========================================================================
+    $(document).on('keydown', '.custom-date-picker, .custom-time-picker', function(e) {
+        if (e.key === 'Backspace') {
+            const fp = this._flatpickr;
+            if (fp && (fp.isOpen || $(this).val().trim().length > 0)) {
+                fp.clear();
+                fp.close();
                 
-                if (hours >= 0 && hours <= 23 && minutes >= 0 && minutes <= 59) {
-                    const date = fp.selectedDates[0] || new Date();
-                    date.setHours(hours, minutes, 0, 0);
-                    fp._isSettingValue = true;
-                    fp.setDate(date, true);
-                    setTimeout(() => { fp._isSettingValue = false; }, 100);
-                }
+                // КРИТИЧЕСКИ ВАЖНО: сбрасываем внутренние поля часов и минут,
+                // иначе "запасной" blur обработчик вернёт старое время
+                if (fp.hourElement) fp.hourElement.value = '';
+                if (fp.minuteElement) fp.minuteElement.value = '';
+                
+                // Очищаем selectedDates принудительно
+                fp.selectedDates = [];
+                
+                e.preventDefault();
             }
         }
     });
 
-     // =========================================================================
-    // 12. МОДАЛКА "НЕСКОЛЬКО МАШИН" (БЫСТРЫЙ ВВОД) - ОБНОВЛЕННАЯ ЛОГИКА
+    // =========================================================================
+    // 14. МОДАЛКА "НЕСКОЛЬКО МАШИН" (БЫСТРЫЙ ВВОД)
     // =========================================================================
     let multipleCarsRowCounter = 0;
 
-    // Открытие модалки
     $('#multipleCarsBtn').click(function() {
         $('#multipleCarsList').empty();
         multipleCarsRowCounter = 0;
@@ -1230,13 +993,11 @@ $('#entryBtn').click(function() {
         }, 250);
     });
 
-    // Закрытие модалки
     function closeMultipleCarsModal() {
         $('#multipleCarsModal').fadeOut(200);
     }
     $('#closeMultipleCarsBtn, #cancelMultipleCarsBtn, #multipleCarsOverlay').click(closeMultipleCarsModal);
 
-    // Добавление новой строки
     function addMultipleCarRow() {
         multipleCarsRowCounter++;
         const rowNum = multipleCarsRowCounter;
@@ -1255,30 +1016,24 @@ $('#entryBtn').click(function() {
         $('#multipleCarsList').append($row);
         
         const list = $('#multipleCarsList')[0];
-        if (list) {
-            list.scrollTop = list.scrollHeight;
-        }
+        if (list) list.scrollTop = list.scrollHeight;
         
         return $row.find('.multiple-car-input');
     }
 
-    // Удаление строки
     $(document).on('click', '.remove-row-btn', function() {
         const $row = $(this).closest('.multiple-car-row');
         const $list = $('#multipleCarsList');
-        
         if ($list.find('.multiple-car-row').length <= 1) {
             showToast('Должна остаться хотя бы одна строка', 'warning');
             return;
         }
-        
         $row.fadeOut(200, function() {
             $(this).remove();
             renumberRows();
         });
     });
 
-    // Перенумерация строк
     function renumberRows() {
         $('#multipleCarsList .multiple-car-row').each(function(index) {
             $(this).find('.row-number').text(index + 1);
@@ -1286,39 +1041,30 @@ $('#entryBtn').click(function() {
         multipleCarsRowCounter = $('#multipleCarsList .multiple-car-row').length;
     }
 
-    // НОВАЯ ЛОГИКА: добавление инпута при focus на последний, если все предыдущие заполнены
     $(document).on('focus', '.multiple-car-input', function() {
         const $input = $(this);
         const $row = $input.closest('.multiple-car-row');
         const $list = $('#multipleCarsList');
         const $lastRow = $list.find('.multiple-car-row').last();
         
-        // Если это последний инпут
         if ($row.is($lastRow)) {
-            // Проверяем, все ли предыдущие инпуты заполнены
             let allPreviousFilled = true;
             $list.find('.multiple-car-input').not($input).each(function() {
                 if ($(this).val().trim().length === 0) {
                     allPreviousFilled = false;
-                    return false; // прерываем цикл
+                    return false;
                 }
             });
-            
-            // Если все предыдущие заполнены - добавляем новый инпут
-            if (allPreviousFilled) {
-                addMultipleCarRow();
-            }
+            if (allPreviousFilled) addMultipleCarRow();
         }
     });
 
-    // Очистка пустых инпутов при blur (опционально, для красоты)
     $(document).on('blur', '.multiple-car-input', function() {
         const $input = $(this);
         const $row = $input.closest('.multiple-car-row');
         const $list = $('#multipleCarsList');
         const $lastRow = $list.find('.multiple-car-row').last();
         
-        // Если это не последний инпут и он пустой - удаляем его
         if (!$row.is($lastRow) && $input.val().trim().length === 0) {
             if ($list.find('.multiple-car-row').length > 1) {
                 $row.fadeOut(200, function() {
@@ -1329,12 +1075,11 @@ $('#entryBtn').click(function() {
         }
     });
 
-    // Отправка всех номеров
     $('#submitMultipleCarsBtn').click(function() {
         const stateNumbers = [];
         $('#multipleCarsList .multiple-car-input').each(function() {
             const val = $(this).val().trim();
-            if (val) stateNumbers.push(val); // Фильтрует пустые строки
+            if (val) stateNumbers.push(val);
         });
         
         if (stateNumbers.length === 0) {
@@ -1367,5 +1112,5 @@ $('#entryBtn').click(function() {
             }
         });
     });
-});
 
+}); // КОНЕЦ $(document).ready

@@ -5,12 +5,11 @@ require_once 'db_connect.php';
 require_once 'helpers.php';
 require_once 'allowed_ips.php';
 
-// 1. Оптимизация сети: включаем GZIP-сжатие ответа (экономит до 70% трафика)
+// 1. Оптимизация сети: GZIP-сжатие ответа (экономит до 70% трафика)
 if (extension_loaded('zlib') && !ob_get_level()) {
     ob_start('ob_gzhandler');
 }
 
-// 2. Оптимизация сети: Keep-Alive для переиспользования соединения
 header('Content-Type: text/html; charset=utf-8');
 header('Connection: keep-alive');
 header('Keep-Alive: timeout=15, max=100');
@@ -19,7 +18,7 @@ $search = trim($_GET['search'] ?? '');
 $inspection = isset($_GET['inspection']) && $_GET['inspection'] === 'true' ? 1 : 0;
 $yearRecord = isset($_GET['yearRecord']) && $_GET['yearRecord'] === 'true' ? 1 : 0;
 
-// 3. Оптимизация БД: выбираем только нужные поля вместо SELECT *
+// 2. Оптимизация БД: выбираем только нужные поля
 $fields = "id, car_make, state_number, driver_last_name, full_name_applicant, 
            entry_time, out_time, entry_date, out_date, comment, inspection, year_record";
 
@@ -28,27 +27,51 @@ $params = [];
 $types = '';
 
 if (!empty($search)) {
-    $searchTerm = "%$search%";
-    // 4. Оптимизация БД: убраны LOWER() (они ломают индексы) и лишние поля (comment, даты)
-    // Поиск по 4 основным полям работает в разы быстрее и всё ещё не чувствителен к регистру в MySQL
+    $term = $search;
+    // Готовим варианты для умной сортировки
+    $like_any = "%$term%";   // Содержит
+    $like_start = "$term%";  // Начинается с
+    $like_end = "%$term";    // Заканчивается (регион)
+
+    // Поиск по основным полям (без LOWER, чтобы работали индексы)
     $query .= " AND (
         car_make LIKE ? OR 
         state_number LIKE ? OR 
         driver_last_name LIKE ? OR 
         full_name_applicant LIKE ?
     )";
-    $params = [$searchTerm, $searchTerm, $searchTerm, $searchTerm];
+    
+    // Добавляем 4 параметра для WHERE
+    $params = array_merge($params, [$like_any, $like_any, $like_any, $like_any]);
     $types .= 'ssss';
+
+    // 3. УМНАЯ СОРТИРОВКА: Приоритет основной части номера над регионом
+    $query .= " ORDER BY 
+        CASE 
+            WHEN state_number LIKE ? THEN 1                                    -- 1. Начинается с запроса (наивысший приоритет)
+            WHEN state_number LIKE ? AND state_number NOT LIKE ? THEN 2        -- 2. Содержит запрос, но НЕ в конце (основной номер, а не регион!)
+            WHEN state_number LIKE ? THEN 3                                    -- 3. Заканчивается запросом (регион)
+            ELSE 4                                                             -- 4. Совпадение в других полях (марка, фамилия)
+        END,
+        id DESC
+    ";
+    
+    // Добавляем 4 параметра для ORDER BY
+    $params = array_merge($params, [$like_start, $like_any, $like_end, $like_end]);
+    $types .= 'ssss';
+
+} else {
+    // Если поиска нет, просто сортируем по ID
+    $query .= " ORDER BY id DESC";
 }
 
+// Фильтры
 if ($inspection) $query .= " AND inspection = 1";
 if ($yearRecord) $query .= " AND year_record = 1";
 
-$query .= " ORDER BY id DESC";
-
-// 5. Оптимизация: жесткие лимиты для защиты медленной сети
+// 4. Лимиты для защиты медленной сети
 $isFilterEmpty = empty($search) && !$inspection && !$yearRecord;
-$limit = $isFilterEmpty ? 10 : 50; // Максимум 50 записей при активном поиске
+$limit = $isFilterEmpty ? 10 : 50; 
 $query .= " LIMIT $limit";
 
 $stmt = $conn->prepare($query);
@@ -85,7 +108,6 @@ if ($result->num_rows > 0) {
         $entryDate = formatDateForMask($row['entry_date']);
         $outDate = formatDateForMask($row['out_date']);
 
-        // 6. Безопасность: добавлено ?? '' для защиты от NULL в базе
         echo "<tr class='table-row' $rowColor data-id='" . htmlspecialchars($row['id']) . "'>";
         echo "<td class='table-cell'><span class='field-tooltip-wrapper'><input type='text' class='edit-field' data-field='car_make' value='" . htmlspecialchars($row['car_make'] ?? '') . "' disabled></span></td>";
         echo "<td class='table-cell'><span class='field-tooltip-wrapper'><input type='text' class='edit-field' data-field='state_number' value='" . htmlspecialchars($row['state_number'] ?? '') . "' data-type='plate-normalize' maxlength='15' disabled></span></td>";
@@ -118,7 +140,6 @@ if ($result->num_rows > 0) {
     }
     echo "</tbody></table>";
     
-    // Подсказка, если результатов много
     if ($result->num_rows >= 50) {
         echo "<div style='text-align:center; padding:15px; color:#888; font-size:13px;'>Показаны первые 50 результатов. Уточните поисковый запрос.</div>";
     }
@@ -129,6 +150,5 @@ if ($result->num_rows > 0) {
 $stmt->close();
 $conn->close();
 
-// Завершаем GZIP-сжатие
 if (ob_get_level()) ob_end_flush();
 ?>
