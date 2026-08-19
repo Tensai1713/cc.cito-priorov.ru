@@ -673,67 +673,82 @@ $(document).ready(function() {
         });
 
         // 8. МАСКА И ОБРАБОТЧИК РУЧНОГО ВВОДА ДАТЫ
-        $(document).on('input', '.custom-date-picker', function(e) {
-            const input = this;
-            const fp = input._flatpickr;
-            if (fp && fp._isSettingValue) return;
-            
-            let value = input.value.replace(/[^\d]/g, '');
-            if (value.length > 8) value = value.slice(0, 8);
-            
-            let formatted = '';
-            if (value.length > 0) {
-                let day = value.slice(0, 2);
-                if (day.length === 2) {
-                    const d = parseInt(day, 10);
-                    if (d > 31) day = '31';
-                    if (d < 1 && day.length === 2) day = '01';
-                }
-                formatted = day;
+    $(document).on('input', '.custom-date-picker', function(e) {
+        const input = this;
+        const fp = input._flatpickr;
+        
+        // Если изменение инициировано самим Flatpickr - пропускаем
+        if (fp && fp._isSettingValue) return;
+        
+        let value = input.value.replace(/[^\d]/g, '');
+        if (value.length > 8) value = value.slice(0, 8);
+        
+        // 🛡️ ГЛАВНОЕ ИСПРАВЛЕНИЕ: Если значение уже в идеальном формате, не трогаем его!
+        // Это предотвращает прерывание первого клика по календарю.
+        if (/^\d{2}\.\d{2}\.\d{4}$/.test(input.value)) {
+            return;
+        }
+        
+        let formatted = '';
+        if (value.length > 0) {
+            let day = value.slice(0, 2);
+            if (day.length === 2) {
+                const d = parseInt(day, 10);
+                if (d > 31) day = '31';
+                if (d < 1 && day.length === 2) day = '01';
             }
-            if (value.length > 2) {
-                formatted += '.';
-                let month = value.slice(2, 4);
-                if (month.length === 2) {
-                    const m = parseInt(month, 10);
-                    if (m > 12) month = '12';
-                    if (m < 1 && month.length === 2) month = '01';
-                }
-                formatted += month;
+            formatted = day;
+        }
+        if (value.length > 2) {
+            formatted += '.';
+            let month = value.slice(2, 4);
+            if (month.length === 2) {
+                const m = parseInt(month, 10);
+                if (m > 12) month = '12';
+                if (m < 1 && month.length === 2) month = '01';
             }
-            if (value.length > 4) {
-                formatted += '.';
-                let year = value.slice(4, 8);
-                formatted += year;
-            }
-            input.value = formatted;
-        });
+            formatted += month;
+        }
+        if (value.length > 4) {
+            formatted += '.';
+            let year = value.slice(4, 8);
+            formatted += year;
+        }
+        
+        input.value = formatted;
+    });
 
-        $(document).on('blur', '.custom-date-picker', function() {
-            const input = this;
-            const fp = input._flatpickr;
-            const currentValue = $(input).val().trim();
+    $(document).on('blur', '.custom-date-picker', function() {
+        const input = this;
+        const fp = input._flatpickr;
+        const currentValue = $(input).val().trim();
 
-            if (currentValue === '') {
-                if (fp) fp.selectedDates = [];
-                return;
+        // Если поле пустое, принудительно очищаем и выходим
+        if (currentValue === '') {
+            if (fp) {
+                fp.selectedDates = [];
+                fp.latestSelectedDateObj = null;
             }
-            
-            if (fp && currentValue) {
-                const dateMatch = currentValue.match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
-                if (dateMatch) {
-                    const day = parseInt(dateMatch[1]);
-                    const month = parseInt(dateMatch[2]) - 1;
-                    const year = parseInt(dateMatch[3]);
-                    const date = new Date(year, month, day);
-                    if (!isNaN(date.getTime())) {
-                        fp._isSettingValue = true;
-                        fp.setDate(date, true);
-                        setTimeout(() => { fp._isSettingValue = false; }, 100);
-                    }
+            return;
+        }
+        
+        // Если дата валидна, аккуратно обновляем внутреннее состояние Flatpickr
+        // БЕЗ вызова setDate(true), который может вызывать побочные эффекты и двойные клики
+        if (fp && currentValue) {
+            const dateMatch = currentValue.match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
+            if (dateMatch) {
+                const day = parseInt(dateMatch[1], 10);
+                const month = parseInt(dateMatch[2], 10) - 1;
+                const year = parseInt(dateMatch[3], 10);
+                const date = new Date(year, month, day);
+                
+                if (!isNaN(date.getTime())) {
+                    fp.selectedDates = [date];
+                    fp.latestSelectedDateObj = date;
                 }
             }
-        });
+        }
+    });
 
         // 9. МАСКА И ОБРАБОТЧИК РУЧНОГО ВВОДА ВРЕМЕНИ
         $(document).on('input', '.custom-time-picker', function(e) {

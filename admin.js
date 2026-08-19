@@ -838,10 +838,18 @@ $(document).ready(function() {
     $(document).on('input', '.custom-date-picker', function(e) {
         const input = this;
         const fp = input._flatpickr;
+        
+        // Если изменение инициировано самим Flatpickr - пропускаем
         if (fp && fp._isSettingValue) return;
         
         let value = input.value.replace(/[^\d]/g, '');
         if (value.length > 8) value = value.slice(0, 8);
+        
+        // 🛡️ ГЛАВНОЕ ИСПРАВЛЕНИЕ: Если значение уже в идеальном формате, не трогаем его!
+        // Это предотвращает прерывание первого клика по календарю.
+        if (/^\d{2}\.\d{2}\.\d{4}$/.test(input.value)) {
+            return;
+        }
         
         let formatted = '';
         if (value.length > 0) {
@@ -868,6 +876,7 @@ $(document).ready(function() {
             let year = value.slice(4, 8);
             formatted += year;
         }
+        
         input.value = formatted;
     });
 
@@ -876,24 +885,26 @@ $(document).ready(function() {
         const fp = input._flatpickr;
         const currentValue = $(input).val().trim();
 
-        // ГЛАВНОЕ ИСПРАВЛЕНИЕ: Если поле пустое, принудительно очищаем flatpickr и выходим
+        // Если поле пустое, принудительно очищаем и выходим
         if (currentValue === '') {
-            if (fp) fp.clear();
-            return; // Прерываем выполнение
+            if (fp) {
+                fp.selectedDates = [];
+                fp.latestSelectedDateObj = null;
+            }
+            return;
         }
         
         if (fp && currentValue) {
             const dateMatch = currentValue.match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
             if (dateMatch) {
-                const day = parseInt(dateMatch[1]);
-                const month = parseInt(dateMatch[2]) - 1;
-                const year = parseInt(dateMatch[3]);
+                const day = parseInt(dateMatch[1], 10);
+                const month = parseInt(dateMatch[2], 10) - 1;
+                const year = parseInt(dateMatch[3], 10);
                 const date = new Date(year, month, day);
                 
                 if (!isNaN(date.getTime())) {
-                    fp._isSettingValue = true;
-                    fp.setDate(date, true);
-                    setTimeout(() => { fp._isSettingValue = false; }, 100);
+                    fp.selectedDates = [date];
+                    fp.latestSelectedDateObj = date;
                 }
             }
         }
