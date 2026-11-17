@@ -41,20 +41,25 @@ if (!empty($search)) {
     $params = array_merge($params, [$like_any, $like_any, $like_any, $like_any]);
     $types .= 'ssss';
 
-    // СОРТИРОВКА: сначала дата (ближайшие сверху), затем релевантность номера
+    // 🎯 ОБНОВЛЕННАЯ СОРТИРОВКА:
+    // 1. Сначала активные (без даты выезда), затем завершенные (с датой выезда)
+    // 2. Релевантность номера (начинается > содержит в номере > регион > другое)
+    // 3. Дата въезда (ближайшие сверху, пустые в конец)
+    // 4. ID для окончательной сортировки
     $query .= " ORDER BY 
-        CASE WHEN entry_date IS NULL OR entry_date = '0000-00-00' OR entry_date = '' THEN 1 ELSE 0 END,
-        CASE 
-            WHEN entry_date LIKE '____-__-__' THEN entry_date
-            WHEN entry_date LIKE '__.__.____' THEN CONCAT(SUBSTRING(entry_date,7,4),'-',SUBSTRING(entry_date,4,2),'-',SUBSTRING(entry_date,1,2))
-            ELSE '0000-00-00'
-        END DESC,
+        CASE WHEN out_date IS NULL OR out_date = '' OR out_date = '0000-00-00' THEN 0 ELSE 1 END ASC,
         CASE 
             WHEN state_number LIKE ? THEN 1
             WHEN state_number LIKE ? AND state_number NOT LIKE ? THEN 2
             WHEN state_number LIKE ? THEN 3
             ELSE 4
         END,
+        CASE WHEN entry_date IS NULL OR entry_date = '0000-00-00' OR entry_date = '' THEN 1 ELSE 0 END,
+        CASE 
+            WHEN entry_date LIKE '____-__-__' THEN entry_date
+            WHEN entry_date LIKE '__.__.____' THEN CONCAT(SUBSTRING(entry_date,7,4),'-',SUBSTRING(entry_date,4,2),'-',SUBSTRING(entry_date,1,2))
+            ELSE '0000-00-00'
+        END DESC,
         id DESC
     ";
     
@@ -62,7 +67,9 @@ if (!empty($search)) {
     $types .= 'ssss';
 
 } else {
+    // Если поиска нет, тоже сначала активные, потом завершенные, потом по дате въезда
     $query .= " ORDER BY 
+        CASE WHEN out_date IS NULL OR out_date = '' OR out_date = '0000-00-00' THEN 0 ELSE 1 END ASC,
         CASE WHEN entry_date IS NULL OR entry_date = '0000-00-00' OR entry_date = '' THEN 1 ELSE 0 END,
         CASE 
             WHEN entry_date LIKE '____-__-__' THEN entry_date
