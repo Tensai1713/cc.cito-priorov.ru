@@ -5,7 +5,7 @@ require_once 'db_connect.php';
 require_once 'helpers.php';
 require_once 'allowed_ips.php';
 
-// 1. Оптимизация сети: GZIP-сжатие ответа (экономит до 70% трафика)
+// 1. Оптимизация сети: GZIP-сжатие ответа
 if (extension_loaded('zlib') && !ob_get_level()) {
     ob_start('ob_gzhandler');
 }
@@ -18,7 +18,6 @@ $search = trim($_GET['search'] ?? '');
 $inspection = isset($_GET['inspection']) && $_GET['inspection'] === 'true' ? 1 : 0;
 $yearRecord = isset($_GET['yearRecord']) && $_GET['yearRecord'] === 'true' ? 1 : 0;
 
-// 2. Оптимизация БД: выбираем только нужные поля
 $fields = "id, car_make, state_number, driver_last_name, full_name_applicant, 
            entry_time, out_time, entry_date, out_date, comment, inspection, year_record";
 
@@ -28,12 +27,10 @@ $types = '';
 
 if (!empty($search)) {
     $term = $search;
-    // Готовим варианты для умной сортировки
-    $like_any = "%$term%";   // Содержит
-    $like_start = "$term%";  // Начинается с
-    $like_end = "%$term";    // Заканчивается (регион)
+    $like_any = "%$term%";
+    $like_start = "$term%";
+    $like_end = "%$term";
 
-    // Поиск по основным полям (без LOWER, чтобы работали индексы)
     $query .= " AND (
         car_make LIKE ? OR 
         state_number LIKE ? OR 
@@ -41,35 +38,45 @@ if (!empty($search)) {
         full_name_applicant LIKE ?
     )";
     
-    // Добавляем 4 параметра для WHERE
     $params = array_merge($params, [$like_any, $like_any, $like_any, $like_any]);
     $types .= 'ssss';
 
-    // 3. УМНАЯ СОРТИРОВКА: Приоритет основной части номера над регионом
+    // СОРТИРОВКА: сначала дата (ближайшие сверху), затем релевантность номера
     $query .= " ORDER BY 
+        CASE WHEN entry_date IS NULL OR entry_date = '0000-00-00' OR entry_date = '' THEN 1 ELSE 0 END,
         CASE 
-            WHEN state_number LIKE ? THEN 1                                    -- 1. Начинается с запроса (наивысший приоритет)
-            WHEN state_number LIKE ? AND state_number NOT LIKE ? THEN 2        -- 2. Содержит запрос, но НЕ в конце (основной номер, а не регион!)
-            WHEN state_number LIKE ? THEN 3                                    -- 3. Заканчивается запросом (регион)
-            ELSE 4                                                             -- 4. Совпадение в других полях (марка, фамилия)
+            WHEN entry_date LIKE '____-__-__' THEN entry_date
+            WHEN entry_date LIKE '__.__.____' THEN CONCAT(SUBSTRING(entry_date,7,4),'-',SUBSTRING(entry_date,4,2),'-',SUBSTRING(entry_date,1,2))
+            ELSE '0000-00-00'
+        END DESC,
+        CASE 
+            WHEN state_number LIKE ? THEN 1
+            WHEN state_number LIKE ? AND state_number NOT LIKE ? THEN 2
+            WHEN state_number LIKE ? THEN 3
+            ELSE 4
         END,
         id DESC
     ";
     
-    // Добавляем 4 параметра для ORDER BY
     $params = array_merge($params, [$like_start, $like_any, $like_end, $like_end]);
     $types .= 'ssss';
 
 } else {
-    // Если поиска нет, просто сортируем по ID
-    $query .= " ORDER BY id DESC";
+    $query .= " ORDER BY 
+        CASE WHEN entry_date IS NULL OR entry_date = '0000-00-00' OR entry_date = '' THEN 1 ELSE 0 END,
+        CASE 
+            WHEN entry_date LIKE '____-__-__' THEN entry_date
+            WHEN entry_date LIKE '__.__.____' THEN CONCAT(SUBSTRING(entry_date,7,4),'-',SUBSTRING(entry_date,4,2),'-',SUBSTRING(entry_date,1,2))
+            ELSE '0000-00-00'
+        END DESC,
+        id DESC";
 }
 
 // Фильтры
 if ($inspection) $query .= " AND inspection = 1";
 if ($yearRecord) $query .= " AND year_record = 1";
 
-// 4. Лимиты для защиты медленной сети
+// Лимиты для защиты медленной сети
 $isFilterEmpty = empty($search) && !$inspection && !$yearRecord;
 $limit = $isFilterEmpty ? 10 : 50; 
 $query .= " LIMIT $limit";

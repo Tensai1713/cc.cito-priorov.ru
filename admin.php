@@ -225,6 +225,10 @@ require_once __DIR__ . '/admin_auth.php';
 
 <div id="results"></div>
 
+<div id="loadMoreWrapper" style="text-align: center; margin-top: 24px; padding-bottom: 10px; display: none;">
+    <button id="loadMoreBtn" class="btn" style="background: #0071e3; color: #fff; border: none; padding: 12px 40px; border-radius: 10px; cursor: pointer; font-weight: 600; font-size: 15px; box-shadow: 0 4px 14px rgba(0,113,227,0.4); transition: all 0.2s ease;">Показать больше</button>
+</div>
+
 <div class="confirm-submit-modal" id="confirmSubmitModal">
     <div class="confirm-submit-overlay" id="confirmSubmitOverlay"></div>
     <div class="confirm-submit-content">

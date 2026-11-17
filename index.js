@@ -212,15 +212,8 @@ $(document).ready(function() {
     // 4. ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ
     // =========================================================================
     function showToast(message, type = 'success') {
-        if ($('#toastContainer').length === 0) $('body').append('<div class="toast-container" id="toastContainer"></div>');
-        const colors = { 
-            success: 'rgba(37, 248, 90, 0.95)', 
-            error: 'rgba(255, 59, 48, 0.95)', 
-            warning: 'rgba(255, 204, 0, 0.95)' 
-        };
-        const toast = $(`<div style="position: fixed; top: 30px; right: 30px; padding: 16px 24px; border-radius: 12px; color: white; font-weight: 500; z-index: 9999; animation: slideUp 0.3s ease; background: ${colors[type]}; backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.2);">${message}</div>`);
-        $('#toastContainer').append(toast);
-        setTimeout(() => toast.fadeOut(300, function() { $(this).remove(); }), 5000);
+        // ФУНКЦИЯ ОТКЛЮЧЕНА: уведомления с inline-стилями больше не создаются
+        return; 
     }
 
     // =========================================================================

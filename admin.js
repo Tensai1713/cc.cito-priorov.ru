@@ -1124,4 +1124,56 @@ $(document).ready(function() {
         });
     });
 
+    // =========================================================================
+    // ОБРАБОТЧИК КНОПКИ "ПОКАЗАТЬ БОЛЬШЕ" (НАДЕЖНАЯ ПРОВЕРКА ПО КОЛИЧЕСТВУ СТРОК)
+    // =========================================================================
+    let loadMoreOffset = 10;
+    const LIMIT_PER_PAGE = 10;
+
+    $(document).on('click', '#loadMoreBtn', function() {
+        const $btn = $(this);
+        const originalText = $btn.text();
+        $btn.text('Загрузка...').prop('disabled', true).css('opacity', '0.7');
+
+        $.ajax({
+            type: "GET",
+            url: "get_last_records.php",
+            data: { offset: loadMoreOffset },
+            cache: false,
+            success: function(response) {
+                // ХИТРОСТЬ: Оборачиваем ответ в tbody, чтобы браузер корректно распарсил <tr>
+                // и не удалил их, посчитав невалидным HTML
+                const $tempTable = $('<table><tbody>' + response + '</tbody></table>');
+                const $newRows = $tempTable.find('tr.table-row');
+
+                if ($newRows.length > 0) {
+                    // Добавляем строки в таблицу
+                    $('#tableBody').append($newRows);
+                    
+                    // Переинициализируем UI (календари, тултипы)
+                    if (typeof refreshTableUI === 'function') refreshTableUI();
+                    if (typeof initTablePickers === 'function') initTablePickers();
+                }
+
+                // ГЛАВНАЯ ЛОГИКА: Сравниваем количество полученных строк с лимитом
+                if ($newRows.length < LIMIT_PER_PAGE) {
+                    // Вернулось меньше 10 записей (или 0). Значит, это был последний кусок.
+                    $('#loadMoreWrapper').fadeOut(300, function() {
+                        $(this).remove();
+                    });
+                } else {
+                    // Вернулось ровно 10 записей. Значит, в базе еще есть данные.
+                    $btn.text(originalText).prop('disabled', false).css('opacity', '1');
+                    loadMoreOffset += LIMIT_PER_PAGE;
+                }
+            },
+            error: function() {
+                $btn.text(originalText).prop('disabled', false).css('opacity', '1');
+                if (typeof showToast === 'function') {
+                    showToast("Ошибка сети при загрузке дополнительных записей", 'error');
+                }
+            }
+        });
+    });
+
 }); // КОНЕЦ $(document).ready
